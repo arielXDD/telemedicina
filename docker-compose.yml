@@ -1,7 +1,32 @@
 version: '3.8'
 
 services:
-  # 1. API Gateway
+  # 1. PostgreSQL Database Server (Exposed on 5432)
+  postgres:
+    image: postgres:15-alpine
+    container_name: telemed-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      # El default database es 'postgres', Prisma creará el resto automáticamente al sincronizar!
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. PGAdmin 4 - Base de Datos Panel de Administración (Puerto 8080)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: telemed-pgadmin
+    ports:
+      - "8080:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    depends_on:
+      - postgres
+
+  # 3. API Gateway
   api-gateway:
     build:
       context: ./services
@@ -17,16 +42,12 @@ services:
       - CLINICAL_HISTORY_SERVICE_PORT=8003
       - JWT_SECRET=jwt-telemedicina-ultra-secret-key-xyz
       - ENCRYPTION_KEY=ab12cd34ef56gh78ij90kl12mn34op56
-      # - STRIPE_SECRET_KEY=tu_llave_de_stripe
-      # - TWILIO_ACCOUNT_SID=tu_sid_de_twilio
-      # - TWILIO_API_KEY=tu_api_key
-      # - TWILIO_API_SECRET=tu_api_secret
     depends_on:
       - auth-service
       - appointment-service
       - clinical-history-service
 
-  # 2. Auth Service
+  # 4. Auth Service
   auth-service:
     build:
       context: ./services
@@ -38,8 +59,11 @@ services:
       - NODE_ENV=production
       - AUTH_SERVICE_PORT=8001
       - JWT_SECRET=jwt-telemedicina-ultra-secret-key-xyz
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/telemed_auth?schema=public
+    depends_on:
+      - postgres
 
-  # 3. Appointment Service
+  # 5. Appointment Service
   appointment-service:
     build:
       context: ./services
@@ -50,9 +74,11 @@ services:
     environment:
       - NODE_ENV=production
       - APPOINTMENT_SERVICE_PORT=8002
-      # - STRIPE_SECRET_KEY=tu_llave_de_stripe
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/telemed_appointments?schema=public
+    depends_on:
+      - postgres
 
-  # 4. Clinical History Service
+  # 6. Clinical History Service
   clinical-history-service:
     build:
       context: ./services
@@ -64,8 +90,11 @@ services:
       - NODE_ENV=production
       - CLINICAL_HISTORY_SERVICE_PORT=8003
       - ENCRYPTION_KEY=ab12cd34ef56gh78ij90kl12mn34op56
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/telemed_clinical_history?schema=public
+    depends_on:
+      - postgres
 
-  # 5. Frontend React SPA
+  # 7. Frontend React SPA
   frontend:
     build:
       context: ./frontend
@@ -75,3 +104,6 @@ services:
       - "5173:80"
     depends_on:
       - api-gateway
+
+volumes:
+  postgres_data:

@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as proxy from 'express-http-proxy';
+import proxy from 'express-http-proxy';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,17 +15,17 @@ async function bootstrap() {
   
   // 1. Redireccionar /auth/* -> Auth Service (puerto 8001)
   expressApp.use('/auth', proxy('http://localhost:8001', {
-    proxyReqPathResolver: (req) => `/auth${req.url}`,
+    proxyReqPathResolver: (req: any) => `/auth${req.url}`,
   }));
 
   // 2. Redireccionar /appointments/* -> Appointment Service (puerto 8002)
   expressApp.use('/appointments', proxy('http://localhost:8002', {
-    proxyReqPathResolver: (req) => `/appointments${req.url}`,
+    proxyReqPathResolver: (req: any) => `/appointments${req.url}`,
   }));
 
   // 3. Redireccionar /clinical-history/* -> Clinical History Service (puerto 8003)
   expressApp.use('/clinical-history', proxy('http://localhost:8003', {
-    proxyReqPathResolver: (req) => `/clinical-history${req.url}`,
+    proxyReqPathResolver: (req: any) => `/clinical-history${req.url}`,
   }));
 
   const port = process.env.GATEWAY_PORT || 8000;

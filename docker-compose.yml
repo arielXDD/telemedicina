@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # 1. API Gateway
+  api-gateway:
+    build:
+      context: ./services
+      dockerfile: ./apps/services/Dockerfile
+    container_name: telemed-api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - GATEWAY_PORT=8000
+      - AUTH_SERVICE_PORT=8001
+      - APPOINTMENT_SERVICE_PORT=8002
+      - CLINICAL_HISTORY_SERVICE_PORT=8003
+      - JWT_SECRET=jwt-telemedicina-ultra-secret-key-xyz
+      - ENCRYPTION_KEY=ab12cd34ef56gh78ij90kl12mn34op56
+      # - STRIPE_SECRET_KEY=tu_llave_de_stripe
+      # - TWILIO_ACCOUNT_SID=tu_sid_de_twilio
+      # - TWILIO_API_KEY=tu_api_key
+      # - TWILIO_API_SECRET=tu_api_secret
+    depends_on:
+      - auth-service
+      - appointment-service
+      - clinical-history-service
+
+  # 2. Auth Service
+  auth-service:
+    build:
+      context: ./services
+      dockerfile: ./apps/auth-service/Dockerfile
+    container_name: telemed-auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_ENV=production
+      - AUTH_SERVICE_PORT=8001
+      - JWT_SECRET=jwt-telemedicina-ultra-secret-key-xyz
+
+  # 3. Appointment Service
+  appointment-service:
+    build:
+      context: ./services
+      dockerfile: ./apps/appointment-service/Dockerfile
+    container_name: telemed-appointment-service
+    ports:
+      - "8002:8002"
+    environment:
+      - NODE_ENV=production
+      - APPOINTMENT_SERVICE_PORT=8002
+      # - STRIPE_SECRET_KEY=tu_llave_de_stripe
+
+  # 4. Clinical History Service
+  clinical-history-service:
+    build:
+      context: ./services
+      dockerfile: ./apps/clinical-history-service/Dockerfile
+    container_name: telemed-clinical-history-service
+    ports:
+      - "8003:8003"
+    environment:
+      - NODE_ENV=production
+      - CLINICAL_HISTORY_SERVICE_PORT=8003
+      - ENCRYPTION_KEY=ab12cd34ef56gh78ij90kl12mn34op56
+
+  # 5. Frontend React SPA
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: telemed-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway

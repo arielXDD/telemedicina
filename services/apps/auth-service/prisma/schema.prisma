@@ -1,0 +1,19 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   // "PACIENTE" o "MEDICO"
+  specialty String?  // Especialidad médica (solo para médicos, ej: "Cardiología", "Pediatría")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

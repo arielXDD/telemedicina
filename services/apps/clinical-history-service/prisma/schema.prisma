@@ -1,0 +1,22 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+model MedicalRecord {
+  id                 String   @id @default(uuid())
+  patientId          String
+  patientName        String
+  doctorId           String
+  doctorName         String
+  date               String   // ISO string de fecha de registro
+  // Ambos campos guardados encriptados simétricamente usando AES-256-CBC
+  encryptedDiagnosis String
+  encryptedTreatment String
+  iv                 String   // Vector de inicialización de encriptación hexadecimal
+  createdAt          DateTime @default(now())
+}

@@ -1,0 +1,30 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+model Appointment {
+  id              String   @id @default(uuid())
+  patientId       String
+  patientName     String
+  doctorId        String
+  doctorName      String
+  specialty       String
+  dateTime        String // ISO string de fecha y hora
+  status          String // "PENDIENTE", "PAGADA", "COMPLETADA", "CANCELADA"
+  amount          Float // Precio de la consulta
+  stripeSessionId String? // ID de sesión de Stripe (opcional/para la simulación)
+  createdAt       DateTime @default(now())
+}
+
+model DoctorSchedule {
+  id        String @id @default(uuid())
+  doctorId  String
+  dayOfWeek String // "Lunes", "Martes", etc.
+  startTime String // "09:00"
+  endTime   String // "17:00"
+}

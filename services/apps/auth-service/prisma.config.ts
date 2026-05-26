@@ -6,6 +6,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: "file:../auth.db",
+    url: process.env.DATABASE_URL_AUTH || process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/telemed_auth?schema=public",
   },
 });

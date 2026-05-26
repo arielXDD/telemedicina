@@ -5,7 +5,7 @@ import { PrismaClient } from './generated/client';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
     super({
-      datasourceUrl: 'file:./apps/appointments.db',
+      datasourceUrl: process.env.DATABASE_URL_APPOINTMENTS || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/telemed_appointments?schema=public',
     });
   }
 

@@ -6,6 +6,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: "file:../clinical_history.db",
+    url: process.env.DATABASE_URL_CLINICAL_HISTORY || process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/telemed_clinical_history?schema=public",
   },
 });

@@ -5,7 +5,7 @@ import { PrismaClient } from './generated/client';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
     super({
-      datasourceUrl: 'file:./apps/auth.db',
+      datasourceUrl: process.env.DATABASE_URL_AUTH || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/telemed_auth?schema=public',
     });
   }
 

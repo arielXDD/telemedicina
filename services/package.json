@@ -85,13 +85,5 @@
     "roots": [
       "<rootDir>/apps/"
     ]
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/engines",
-      "prisma",
-      "bcrypt",
-      "@nestjs/core"
-    ]
   }
 }

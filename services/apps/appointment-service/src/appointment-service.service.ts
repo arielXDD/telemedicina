@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 
 @Injectable()
 export class AppointmentServiceService {
-  private stripe: Stripe | null = null;
+  private stripe: any = null;
 
   constructor(private prisma: PrismaService) {
     const stripeKey = process.env.STRIPE_SECRET_KEY;

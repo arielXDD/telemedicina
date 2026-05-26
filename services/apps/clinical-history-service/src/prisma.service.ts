@@ -5,7 +5,11 @@ import { PrismaClient } from './generated/client';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
     super({
-      datasourceUrl: process.env.DATABASE_URL_CLINICAL_HISTORY || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/telemed_clinical_history?schema=public',
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL_CLINICAL_HISTORY || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/telemed_clinical_history?schema=public',
+        },
+      },
     });
   }
 

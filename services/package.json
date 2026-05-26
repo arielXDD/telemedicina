@@ -18,7 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./apps/services/test/jest-e2e.json",
-    "db:push": "npx prisma db push --schema apps/auth-service/prisma/schema.prisma && npx prisma db push --schema apps/appointment-service/prisma/schema.prisma && npx prisma db push --schema apps/clinical-history-service/prisma/schema.prisma"
+    "db:push": "cd apps/auth-service && npx prisma db push && cd ../.. && cd apps/appointment-service && npx prisma db push && cd ../.. && cd apps/clinical-history-service && npx prisma db push"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

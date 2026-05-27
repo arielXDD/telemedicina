@@ -86,6 +86,9 @@ Prisma.NullTypes = NullTypes
  * Enums
  */
 exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
+  ReadUncommitted: 'ReadUncommitted',
+  ReadCommitted: 'ReadCommitted',
+  RepeatableRead: 'RepeatableRead',
   Serializable: 'Serializable'
 });
 
@@ -107,6 +110,11 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
+exports.Prisma.QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+};
+
 
 exports.Prisma.ModelName = {
   MedicalRecord: 'MedicalRecord'
@@ -118,8 +126,8 @@ const config = {
   "previewFeatures": [],
   "clientVersion": "7.8.0",
   "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
-  "activeProvider": "sqlite",
-  "inlineSchema": "datasource db {\n  provider = \"sqlite\"\n}\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/client\"\n}\n\nmodel MedicalRecord {\n  id                 String   @id @default(uuid())\n  patientId          String\n  patientName        String\n  doctorId           String\n  doctorName         String\n  date               String // ISO string de fecha de registro\n  // Ambos campos guardados encriptados simétricamente usando AES-256-CBC\n  encryptedDiagnosis String\n  encryptedTreatment String\n  iv                 String // Vector de inicialización de encriptación hexadecimal\n  createdAt          DateTime @default(now())\n}\n"
+  "activeProvider": "postgresql",
+  "inlineSchema": "datasource db {\n  provider = \"postgresql\"\n}\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/client\"\n}\n\nmodel MedicalRecord {\n  id                 String   @id @default(uuid())\n  patientId          String\n  patientName        String\n  doctorId           String\n  doctorName         String\n  date               String // ISO string de fecha de registro\n  encryptedDiagnosis String\n  encryptedTreatment String\n  iv                 String // Vector de inicialización de encriptación hexadecimal\n  createdAt          DateTime @default(now())\n}\n"
 }
 
 config.runtimeDataModel = JSON.parse("{\"models\":{\"MedicalRecord\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"patientId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"patientName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"doctorId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"doctorName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"date\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"encryptedDiagnosis\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"encryptedTreatment\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"iv\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")

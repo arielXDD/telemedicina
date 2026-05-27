@@ -12,19 +12,22 @@ async function bootstrap() {
   const expressApp = app.getHttpAdapter().getInstance();
 
   // Configurar las rutas del API Gateway hacia los respectivos microservicios
-  
-  // 1. Redireccionar /auth/* -> Auth Service (puerto 8001)
-  expressApp.use('/auth', proxy('http://localhost:8001', {
+  const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:8001';
+  const appointmentServiceUrl = process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:8002';
+  const clinicalHistoryServiceUrl = process.env.CLINICAL_HISTORY_SERVICE_URL || 'http://localhost:8003';
+
+  // 1. Redireccionar /auth/* -> Auth Service
+  expressApp.use('/auth', proxy(authServiceUrl, {
     proxyReqPathResolver: (req: any) => `/auth${req.url}`,
   }));
 
-  // 2. Redireccionar /appointments/* -> Appointment Service (puerto 8002)
-  expressApp.use('/appointments', proxy('http://localhost:8002', {
+  // 2. Redireccionar /appointments/* -> Appointment Service
+  expressApp.use('/appointments', proxy(appointmentServiceUrl, {
     proxyReqPathResolver: (req: any) => `/appointments${req.url}`,
   }));
 
-  // 3. Redireccionar /clinical-history/* -> Clinical History Service (puerto 8003)
-  expressApp.use('/clinical-history', proxy('http://localhost:8003', {
+  // 3. Redireccionar /clinical-history/* -> Clinical History Service
+  expressApp.use('/clinical-history', proxy(clinicalHistoryServiceUrl, {
     proxyReqPathResolver: (req: any) => `/clinical-history${req.url}`,
   }));
 

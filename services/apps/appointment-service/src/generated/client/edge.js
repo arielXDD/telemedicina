@@ -86,6 +86,9 @@ Prisma.NullTypes = NullTypes
  * Enums
  */
 exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
+  ReadUncommitted: 'ReadUncommitted',
+  ReadCommitted: 'ReadCommitted',
+  RepeatableRead: 'RepeatableRead',
   Serializable: 'Serializable'
 });
 
@@ -116,6 +119,11 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
+exports.Prisma.QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+};
+
 exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
@@ -133,8 +141,8 @@ const config = {
   "previewFeatures": [],
   "clientVersion": "7.8.0",
   "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
-  "activeProvider": "sqlite",
-  "inlineSchema": "datasource db {\n  provider = \"sqlite\"\n}\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/client\"\n}\n\nmodel Appointment {\n  id              String   @id @default(uuid())\n  patientId       String\n  patientName     String\n  doctorId        String\n  doctorName      String\n  specialty       String\n  dateTime        String // ISO string de fecha y hora\n  status          String // \"PENDIENTE\", \"PAGADA\", \"COMPLETADA\", \"CANCELADA\"\n  amount          Float // Precio de la consulta\n  stripeSessionId String? // ID de sesión de Stripe (opcional/para la simulación)\n  createdAt       DateTime @default(now())\n}\n\nmodel DoctorSchedule {\n  id        String @id @default(uuid())\n  doctorId  String\n  dayOfWeek String // \"Lunes\", \"Martes\", etc.\n  startTime String // \"09:00\"\n  endTime   String // \"17:00\"\n}\n"
+  "activeProvider": "postgresql",
+  "inlineSchema": "datasource db {\n  provider = \"postgresql\"\n}\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/client\"\n}\n\nmodel Appointment {\n  id              String   @id @default(uuid())\n  patientId       String\n  patientName     String\n  doctorId        String\n  doctorName      String\n  specialty       String\n  dateTime        String // ISO string de fecha y hora\n  status          String // \"PENDIENTE\", \"PAGADA\", \"COMPLETADA\", \"CANCELADA\"\n  amount          Float // Precio de la consulta\n  stripeSessionId String? // ID de sesión de Stripe (opcional/para la simulación)\n  createdAt       DateTime @default(now())\n}\n\nmodel DoctorSchedule {\n  id        String @id @default(uuid())\n  doctorId  String\n  dayOfWeek String // \"Lunes\", \"Martes\", etc.\n  startTime String // \"09:00\"\n  endTime   String // \"17:00\"\n}\n"
 }
 
 config.runtimeDataModel = JSON.parse("{\"models\":{\"Appointment\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"patientId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"patientName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"doctorId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"doctorName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"specialty\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"dateTime\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"amount\",\"kind\":\"scalar\",\"type\":\"Float\"},{\"name\":\"stripeSessionId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"DoctorSchedule\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"doctorId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"dayOfWeek\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"startTime\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"endTime\",\"kind\":\"scalar\",\"type\":\"String\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")

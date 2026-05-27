@@ -55,9 +55,17 @@ export default function App() {
   // Navegación
   const [view, setView] = useState<'auth' | 'patient_dashboard' | 'doctor_dashboard' | 'checkout' | 'consultation'>('auth');
 
-  // Estados de Reserva
+  // Estados de Reserva e Interacción de Médicos
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedDateTime, setSelectedDateTime] = useState('');
+  const [doctorSearchKeyword, setDoctorSearchKeyword] = useState('');
+  const [selectedSpecialtyFilter, setSelectedSpecialtyFilter] = useState('Todas');
+  const [activeDoctorForProfileModal, setActiveDoctorForProfileModal] = useState<User | null>(null);
+  const [selectedDoctorSchedule, setSelectedDoctorSchedule] = useState<any[]>([]);
+
+  // Estados de Búsqueda de Historial
+  const [medicalRecordsSearch, setMedicalRecordsSearch] = useState('');
+  const [selectedRecordForPrescription, setSelectedRecordForPrescription] = useState<MedicalRecord | null>(null);
 
   // Estados de Pago Stripe (Simulación)
   const [activeAppointmentForCheckout, setActiveAppointmentForCheckout] = useState<Appointment | null>(null);
@@ -78,8 +86,26 @@ export default function App() {
   const [diagnosis, setDiagnosis] = useState('');
   const [treatment, setTreatment] = useState('');
 
+  // Chat en tiempo real de consulta
+  const [chatMessages, setChatMessages] = useState<{ senderName: string; senderRole: string; message: string; timestamp: Date }[]>([]);
+  const [newChatMessage, setNewChatMessage] = useState('');
+
+  // Historial previo del paciente activo cargado para el médico
+  const [activePatientHistory, setActivePatientHistory] = useState<MedicalRecord[]>([]);
+
+  // Agenda y Horarios configurables del Médico
+  const [doctorSchedules, setDoctorSchedules] = useState<{ dayOfWeek: string; startTime: string; endTime: string; enabled: boolean }[]>([
+    { dayOfWeek: 'Lunes', startTime: '09:00', endTime: '17:00', enabled: true },
+    { dayOfWeek: 'Martes', startTime: '09:00', endTime: '17:00', enabled: true },
+    { dayOfWeek: 'Miércoles', startTime: '09:00', endTime: '17:00', enabled: true },
+    { dayOfWeek: 'Jueves', startTime: '09:00', endTime: '17:00', enabled: true },
+    { dayOfWeek: 'Viernes', startTime: '09:00', endTime: '17:00', enabled: true },
+    { dayOfWeek: 'Sábado', startTime: '09:00', endTime: '14:00', enabled: false },
+    { dayOfWeek: 'Domingo', startTime: '09:00', endTime: '14:00', enabled: false }
+  ]);
+
   // Notificaciones
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
 
   // Refs de Video para WebRTC
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -94,7 +120,7 @@ export default function App() {
   }, [token]);
 
   // Manejador de notificaciones toast automáticas
-  const showToast = (type: 'success' | 'error', message: string) => {
+  const showToast = (type: 'success' | 'error' | 'warning', message: string) => {
     setToast({ type, message });
     setTimeout(() => {
       setToast(null);
@@ -154,17 +180,83 @@ export default function App() {
           setMedicalRecords(records);
         }
       } else {
-        // Si es médico, obtener su historial de atenciones
+        // Si es médico, obtener su historial de atenciones y su agenda
         const historyRes = await fetch(`${API_URL}/clinical-history/doctor/${currentUser.id}`);
         if (historyRes.ok) {
           const records = await historyRes.json();
           setMedicalRecords(records);
         }
+        fetchDoctorSchedule(currentUser.id);
       }
     } catch (e) {
       console.error('Error al cargar datos iniciales:', e);
     }
   };
+
+  const fetchDoctorSchedule = async (doctorId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/appointments/schedule/${doctorId}`);
+      if (res.ok) {
+        const dbSchedules = await res.json();
+        if (dbSchedules.length > 0) {
+          const updatedSchedules = doctorSchedules.map(s => {
+            const match = dbSchedules.find((dbS: any) => dbS.dayOfWeek === s.dayOfWeek);
+            if (match) {
+              return { ...s, startTime: match.startTime, endTime: match.endTime, enabled: true };
+            }
+            return { ...s, enabled: false };
+          });
+          setDoctorSchedules(updatedSchedules);
+        }
+      }
+    } catch (e) {
+      console.error('Error al obtener agenda del médico:', e);
+    }
+  };
+
+  const handleSaveSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      let successCount = 0;
+      for (const day of doctorSchedules) {
+        if (day.enabled) {
+          const res = await fetch(`${API_URL}/appointments/schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              doctorId: user.id,
+              dayOfWeek: day.dayOfWeek,
+              startTime: day.startTime,
+              endTime: day.endTime,
+            }),
+          });
+          if (res.ok) successCount++;
+        }
+      }
+      showToast('success', 'Agenda y horarios actualizados en el servidor.');
+    } catch (e) {
+      showToast('error', 'Error al guardar configuración de horarios.');
+    }
+  };
+
+  const fetchSelectedDoctorSchedule = async (doctorId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/appointments/schedule/${doctorId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedDoctorSchedule(data);
+      }
+    } catch (e) {
+      console.error('Error al cargar agenda del especialista:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedDoctorId) {
+      fetchSelectedDoctorSchedule(selectedDoctorId);
+    }
+  }, [selectedDoctorId]);
 
   const handleLogout = () => {
     localStorage.removeItem('telemed_token');
@@ -306,6 +398,27 @@ export default function App() {
     setDiagnosis('');
     setTreatment('');
     
+    // Inicializar chat de consulta
+    setChatMessages([
+      {
+        senderName: 'Sistema',
+        senderRole: 'SISTEMA',
+        message: 'Línea de videoconsulta cifrada de extremo a extremo abierta. Puedes usar el chat lateral para coordinar indicaciones.',
+        timestamp: new Date()
+      }
+    ]);
+
+    // Cargar historial del paciente
+    try {
+      const historyRes = await fetch(`${API_URL}/clinical-history/patient/${appt.patientId}`);
+      if (historyRes.ok) {
+        const records = await historyRes.json();
+        setActivePatientHistory(records);
+      }
+    } catch (e) {
+      console.error('Error al cargar expediente del paciente para consulta:', e);
+    }
+    
     // Iniciar captura de cámara web del usuario
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -363,6 +476,37 @@ export default function App() {
     stopCamera();
     setActiveAppointmentForConsultation(null);
     setView(user?.role === 'MEDICO' ? 'doctor_dashboard' : 'patient_dashboard');
+  };
+
+  const handleSendChatMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChatMessage.trim() || !user) return;
+    
+    const msg = {
+      senderName: user.name,
+      senderRole: user.role,
+      message: newChatMessage.trim(),
+      timestamp: new Date()
+    };
+    
+    setChatMessages(prev => [...prev, msg]);
+    setNewChatMessage('');
+
+    // Respuesta automática de cortesía del interlocutor después de 3.5 segundos para fines de simulación interactiva completa
+    setTimeout(() => {
+      if (!activeAppointmentForConsultation) return;
+      const remoteMsg = {
+        senderName: user.role === 'MEDICO' 
+          ? activeAppointmentForConsultation.patientName 
+          : `Dr. ${activeAppointmentForConsultation.doctorName}`,
+        senderRole: user.role === 'MEDICO' ? 'PACIENTE' : 'MEDICO',
+        message: user.role === 'MEDICO' 
+          ? 'Enterado, doctor. Muchas gracias por la explicación.' 
+          : 'Comprendido. Anoto los síntomas para incluirlos en las recomendaciones médicas de la receta.',
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, remoteMsg]);
+    }, 3500);
   };
 
   // Finalizar Consulta y registrar diagnóstico (Médico)
@@ -646,6 +790,111 @@ export default function App() {
               )}
             </div>
 
+            {/* Panel Principal Izquierdo - Directorio de Médicos Especialistas (Nuevo) */}
+            <div className="dashboard-panel" style={{ marginTop: '2.5rem' }}>
+              <h3 className="panel-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M17.9 20a6 6 0 0 0-11.8 0"/><circle cx="12" cy="12" r="10"/></svg>
+                Directorio de Especialistas
+              </h3>
+              
+              <div className="doctor-directory-container">
+                <p style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
+                  Busca y selecciona un médico especialista de nuestra red clínica autorizada. Puedes ver sus detalles, ratings y agendar una cita.
+                </p>
+                
+                {/* Buscador de Médicos */}
+                <div className="search-filter-row">
+                  <div className="search-input-wrapper">
+                    <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input
+                      type="text"
+                      className="form-input search-input"
+                      style={{ paddingLeft: '2.5rem' }}
+                      placeholder="Buscar por nombre o especialidad..."
+                      value={doctorSearchKeyword}
+                      onChange={(e) => setDoctorSearchKeyword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Filtros de Especialidad */}
+                <div className="doctor-directory-filters">
+                  {['Todas', 'Cardiología', 'Pediatría', 'Dermatología', 'Ginecología', 'Medicina Interna', 'Neurología'].map(spec => (
+                    <button
+                      key={spec}
+                      type="button"
+                      className={`filter-chip ${selectedSpecialtyFilter === spec ? 'active' : ''}`}
+                      onClick={() => setSelectedSpecialtyFilter(spec)}
+                    >
+                      {spec}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Grid de Tarjetas de Médicos */}
+                {doctors.length === 0 ? (
+                  <div className="empty-state" style={{ padding: '2rem' }}>
+                    <p>No se encontraron médicos registrados.</p>
+                  </div>
+                ) : (
+                  <div className="doctor-cards-grid">
+                    {doctors
+                      .filter(doc => {
+                        const matchesSpec = selectedSpecialtyFilter === 'Todas' || doc.specialty === selectedSpecialtyFilter;
+                        const matchesSearch = doc.name.toLowerCase().includes(doctorSearchKeyword.toLowerCase()) || 
+                                              (doc.specialty && doc.specialty.toLowerCase().includes(doctorSearchKeyword.toLowerCase()));
+                        return matchesSpec && matchesSearch;
+                      })
+                      .map(doc => {
+                        const rating = (4.7 + (doc.name.length % 4) * 0.1).toFixed(1);
+                        const initial = doc.name ? doc.name.charAt(0).toUpperCase() : 'M';
+                        
+                        return (
+                          <div key={doc.id} className="doctor-card-premium">
+                            <div className="doctor-card-avatar">
+                              {initial}
+                            </div>
+                            <span className="doctor-card-name">Dr. {doc.name}</span>
+                            <span className="doctor-card-spec">{doc.specialty || 'Medicina General'}</span>
+                            
+                            <div className="doctor-card-rating">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                              <span>{rating}</span>
+                              <span style={{ color: 'hsl(var(--text-muted))', fontSize: '0.72rem' }}>(34 opiniones)</span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.4rem', width: '100%', marginTop: 'auto' }}>
+                              <button
+                                type="button"
+                                className="btn-outline doctor-card-btn"
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem', justifyContent: 'center' }}
+                                onClick={() => {
+                                  setActiveDoctorForProfileModal(doc);
+                                  fetchSelectedDoctorSchedule(doc.id);
+                                }}
+                              >
+                                Perfil
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-premium doctor-card-btn"
+                                style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem', justifyContent: 'center' }}
+                                onClick={() => {
+                                  setSelectedDoctorId(doc.id);
+                                  showToast('success', `Especialista seleccionado: Dr. ${doc.name}. Agende su cita en el formulario de la derecha.`);
+                                }}
+                              >
+                                Agendar
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Columna Derecha: Panel de Reserva e Historial Clínico */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
               
@@ -671,6 +920,23 @@ export default function App() {
                       ))}
                     </select>
                   </div>
+
+                  {/* Horario Disponible del Médico seleccionado cargado de forma dinámica */}
+                  {selectedDoctorSchedule.length > 0 ? (
+                    <div style={{ marginBottom: '0.8rem', padding: '0.6rem 0.8rem', background: 'hsla(var(--primary), 0.05)', border: '1px dashed hsla(var(--primary), 0.3)', borderRadius: '6px', fontSize: '0.75rem' }}>
+                      <strong style={{ color: 'hsl(var(--primary))', display: 'block', marginBottom: '4px' }}>Horario de Atención:</strong>
+                      {selectedDoctorSchedule.map((s, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                          <span>{s.dayOfWeek}:</span>
+                          <strong style={{ color: 'hsl(var(--text-main))' }}>{s.startTime} - {s.endTime}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: '0.8rem', padding: '0.6rem 0.8rem', background: 'hsl(var(--bg-base))', border: '1px solid hsl(var(--border-color))', borderRadius: '6px', fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontStyle: 'italic' }}>
+                      Médico disponible toda la semana.
+                    </div>
+                  )}
 
                   <div className="form-group" style={{ marginBottom: '0.8rem' }}>
                     <label className="form-label" style={{ fontSize: '0.75rem' }}>Fecha y Hora</label>
@@ -706,28 +972,63 @@ export default function App() {
                     <p style={{ fontSize: '0.85rem' }}>No cuentas con atenciones anteriores.</p>
                   </div>
                 ) : (
-                  <div className="history-records-grid">
-                    {medicalRecords.map(rec => (
-                      <div key={rec.id} className="history-record-card">
-                        <div className="record-meta">
-                          <span>Dr. {rec.doctorName}</span>
-                          <span>{new Date(rec.date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="record-text">
-                          <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>Diagnóstico: </strong>
-                          <p style={{ marginTop: '2px', color: 'hsl(var(--text-main))' }}>{rec.diagnosis}</p>
-                        </div>
-                        <div className="record-text">
-                          <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--secondary))' }}>Tratamiento: </strong>
-                          <p style={{ marginTop: '2px', color: 'hsl(var(--text-muted))' }}>{rec.treatment}</p>
-                        </div>
-                        <span className="secure-lock-badge">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                          Protegido con AES-256
-                        </span>
+                  <>
+                    <div className="search-filter-row">
+                      <div className="search-input-wrapper">
+                        <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input
+                          type="text"
+                          className="form-input search-input"
+                          placeholder="Buscar diagnóstico, doctor..."
+                          value={medicalRecordsSearch}
+                          style={{ paddingLeft: '2.5rem' }}
+                          onChange={(e) => setMedicalRecordsSearch(e.target.value)}
+                        />
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                    
+                    <div className="history-records-grid">
+                      {medicalRecords
+                        .filter(rec => {
+                          const query = medicalRecordsSearch.toLowerCase();
+                          return rec.diagnosis.toLowerCase().includes(query) || 
+                                 rec.treatment.toLowerCase().includes(query) || 
+                                 rec.doctorName.toLowerCase().includes(query);
+                        })
+                        .map(rec => (
+                          <div 
+                            key={rec.id} 
+                            className="history-record-card"
+                            style={{ cursor: 'pointer', transition: 'var(--transition-smooth)' }}
+                            onClick={() => setSelectedRecordForPrescription(rec)}
+                            title="Haga clic para ver la Receta Médica imprimible"
+                          >
+                            <div className="record-meta">
+                              <span>Dr. {rec.doctorName}</span>
+                              <span>{new Date(rec.date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="record-text">
+                              <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>Diagnóstico: </strong>
+                              <p style={{ marginTop: '2px', color: 'hsl(var(--text-main))' }}>{rec.diagnosis}</p>
+                            </div>
+                            <div className="record-text">
+                              <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--secondary))' }}>Tratamiento: </strong>
+                              <p style={{ marginTop: '2px', color: 'hsl(var(--text-muted))' }}>{rec.treatment}</p>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                              <span className="secure-lock-badge">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                Cifrado AES-256
+                              </span>
+                              <span style={{ fontSize: '0.72rem', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+                                Receta
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -803,43 +1104,150 @@ export default function App() {
               )}
             </div>
 
-            {/* Panel Derecho: Historial de recetas emitidas encriptadas */}
-            <div className="dashboard-panel">
-              <h3 className="panel-title">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Diagnósticos Emitidos (Cifrado AES-256)
-              </h3>
+            {/* Panel Derecho: Configuración de Agenda y recetas emitidas */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+              
+              {/* Sub-Panel 1: Configurar Agenda de Horarios */}
+              <div className="dashboard-panel">
+                <h3 className="panel-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  Mi Horario de Atención
+                </h3>
+                
+                <form onSubmit={handleSaveSchedule} className="booking-section">
+                  <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: '0 0 0.5rem 0' }}>
+                    Registra las horas hábiles en las que los pacientes podrán reservar citas contigo.
+                  </p>
+                  
+                  <div className="agenda-grid">
+                    {doctorSchedules.map((day, idx) => (
+                      <div key={idx} className={`day-schedule-card ${day.enabled ? 'active' : ''}`}>
+                        <label className="day-schedule-header" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="checkbox"
+                            checked={day.enabled}
+                            onChange={(e) => {
+                              const updated = [...doctorSchedules];
+                              updated[idx].enabled = e.target.checked;
+                              setDoctorSchedules(updated);
+                            }}
+                          />
+                          {day.dayOfWeek}
+                        </label>
+                        {day.enabled && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'hsl(var(--text-muted))' }}>Inicio:</span>
+                              <input
+                                type="text"
+                                value={day.startTime}
+                                className="form-input"
+                                style={{ padding: '2px 4px', fontSize: '0.72rem', width: '50px', textAlign: 'center', height: '22px' }}
+                                onChange={(e) => {
+                                  const updated = [...doctorSchedules];
+                                  updated[idx].startTime = e.target.value;
+                                  setDoctorSchedules(updated);
+                                }}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'hsl(var(--text-muted))' }}>Fin:</span>
+                              <input
+                                type="text"
+                                value={day.endTime}
+                                className="form-input"
+                                style={{ padding: '2px 4px', fontSize: '0.72rem', width: '50px', textAlign: 'center', height: '22px' }}
+                                onChange={(e) => {
+                                  const updated = [...doctorSchedules];
+                                  updated[idx].endTime = e.target.value;
+                                  setDoctorSchedules(updated);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <button type="submit" className="btn-premium" style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem', padding: '0.6rem' }}>
+                    Guardar Configuración de Horario
+                  </button>
+                </form>
+              </div>
 
-              {medicalRecords.length === 0 ? (
-                <div className="empty-state" style={{ padding: '2rem' }}>
-                  <p style={{ fontSize: '0.85rem' }}>No has emitido recetas anteriormente.</p>
-                </div>
-              ) : (
-                <div className="history-records-grid">
-                  {medicalRecords.map(rec => (
-                    <div key={rec.id} className="history-record-card">
-                      <div className="record-meta">
-                        <span>Paciente: {rec.patientName}</span>
-                        <span>{new Date(rec.date).toLocaleDateString()}</span>
+              {/* Sub-Panel 2: Diagnósticos Emitidos */}
+              <div className="dashboard-panel">
+                <h3 className="panel-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  Diagnósticos Emitidos (Cifrado AES-256)
+                </h3>
+
+                {medicalRecords.length === 0 ? (
+                  <div className="empty-state" style={{ padding: '2rem' }}>
+                    <p style={{ fontSize: '0.85rem' }}>No has emitido recetas anteriormente.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="search-filter-row">
+                      <div className="search-input-wrapper">
+                        <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input
+                          type="text"
+                          className="form-input search-input"
+                          placeholder="Buscar paciente, diagnóstico..."
+                          value={medicalRecordsSearch}
+                          style={{ paddingLeft: '2.5rem' }}
+                          onChange={(e) => setMedicalRecordsSearch(e.target.value)}
+                        />
                       </div>
-                      <div className="record-text">
-                        <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>Diagnóstico: </strong>
-                        <p style={{ marginTop: '2px', color: 'hsl(var(--text-main))' }}>{rec.diagnosis}</p>
-                      </div>
-                      <div className="record-text">
-                        <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--secondary))' }}>Tratamiento: </strong>
-                        <p style={{ marginTop: '2px', color: 'hsl(var(--text-muted))' }}>{rec.treatment}</p>
-                      </div>
-                      <span className="secure-lock-badge">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        Guardado Cifrado
-                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
+                    <div className="history-records-grid">
+                      {medicalRecords
+                        .filter(rec => {
+                          const query = medicalRecordsSearch.toLowerCase();
+                          return rec.diagnosis.toLowerCase().includes(query) || 
+                                 rec.treatment.toLowerCase().includes(query) || 
+                                 rec.patientName.toLowerCase().includes(query);
+                        })
+                        .map(rec => (
+                          <div 
+                            key={rec.id} 
+                            className="history-record-card"
+                            style={{ cursor: 'pointer', transition: 'var(--transition-smooth)' }}
+                            onClick={() => setSelectedRecordForPrescription(rec)}
+                            title="Haga clic para ver la Receta Médica Oficial"
+                          >
+                            <div className="record-meta">
+                              <span>Paciente: {rec.patientName}</span>
+                              <span>{new Date(rec.date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="record-text">
+                              <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>Diagnóstico: </strong>
+                              <p style={{ marginTop: '2px', color: 'hsl(var(--text-main))' }}>{rec.diagnosis}</p>
+                            </div>
+                            <div className="record-text">
+                              <strong style={{ fontSize: '0.8rem', color: 'hsl(var(--secondary))' }}>Tratamiento: </strong>
+                              <p style={{ marginTop: '2px', color: 'hsl(var(--text-muted))' }}>{rec.treatment}</p>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                              <span className="secure-lock-badge">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                Guardado Cifrado
+                              </span>
+                              <span style={{ fontSize: '0.72rem', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+                                Receta
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </main>
       )}
@@ -1107,72 +1515,305 @@ export default function App() {
           </div>
 
           {/* Columna Derecha: Panel de Consulta (Médico / Paciente) */}
-          <div className="consult-sidebar">
+          <div className="consult-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto' }}>
             {user?.role === 'MEDICO' ? (
-              // Vista del Médico: Formulario de Receta Médica
-              <form onSubmit={handleSaveMedicalRecord} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', height: '100%' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, borderBottom: '1px solid hsl(var(--border-color))', paddingBottom: '0.6rem' }}>
+              // Vista del Médico: Formulario de Receta Médica + Historial Clínico previo del Paciente
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, borderBottom: '1px solid hsl(var(--border-color))', paddingBottom: '0.4rem', margin: 0 }}>
                   Atención Médica
                 </h3>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Paciente</label>
-                  <strong style={{ fontSize: '1.1rem' }}>{activeAppointmentForConsultation.patientName}</strong>
+                {/* Historial Clínico previo del Paciente (Visible solo para el Médico durante la llamada) */}
+                <div style={{ background: 'hsl(var(--bg-base))', border: '1px solid hsl(var(--border-color))', borderRadius: '6px', padding: '0.8rem', maxHeight: '180px', overflowY: 'auto' }}>
+                  <strong style={{ fontSize: '0.78rem', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Historial Médico del Paciente
+                  </strong>
+                  
+                  {activePatientHistory.length === 0 ? (
+                    <span style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontStyle: 'italic' }}>Sin expedientes registrados anteriormente.</span>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {activePatientHistory.map((h, idx) => (
+                        <div key={idx} style={{ padding: '6px', background: 'hsl(var(--bg-surface))', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid hsl(var(--border-color))' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))', fontSize: '0.68rem', marginBottom: '2px' }}>
+                            <span>Dr. {h.doctorName}</span>
+                            <span>{new Date(h.date).toLocaleDateString()}</span>
+                          </div>
+                          <div><strong>Diagnóstico:</strong> {h.diagnosis}</div>
+                          <div><strong>Tratamiento:</strong> {h.treatment}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
-                  <label className="form-label">Diagnóstico Clínico</label>
-                  <textarea
-                    className="form-input"
-                    style={{ flex: 1, minHeight: '120px', padding: '0.8rem', resize: 'none' }}
-                    placeholder="Escribe el diagnóstico completo de la consulta..."
-                    value={diagnosis}
-                    onChange={(e) => setDiagnosis(e.target.value)}
-                  />
-                </div>
+                <form onSubmit={handleSaveMedicalRecord} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', flex: 1 }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Paciente bajo consulta</label>
+                    <strong style={{ fontSize: '1.05rem', color: 'white' }}>{activeAppointmentForConsultation.patientName}</strong>
+                  </div>
 
-                <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
-                  <label className="form-label">Tratamiento e Indicaciones</label>
-                  <textarea
-                    className="form-input"
-                    style={{ flex: 1, minHeight: '120px', padding: '0.8rem', resize: 'none' }}
-                    placeholder="Detalla la dosis, medicamentos y recomendaciones..."
-                    value={treatment}
-                    onChange={(e) => setTreatment(e.target.value)}
-                  />
-                </div>
+                  <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Diagnóstico Clínico</label>
+                    <textarea
+                      className="form-input"
+                      style={{ flex: 1, minHeight: '80px', padding: '0.6rem', resize: 'none', fontSize: '0.88rem' }}
+                      placeholder="Escribe el diagnóstico completo de la consulta..."
+                      value={diagnosis}
+                      onChange={(e) => setDiagnosis(e.target.value)}
+                    />
+                  </div>
 
-                <div style={{ background: 'hsla(var(--success), 0.05)', border: '1px dashed hsla(var(--success), 0.3)', padding: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'hsl(var(--success))' }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
-                    Al enviar, estos datos se encriptarán con **AES-256** antes de almacenarse en la base de datos de salud.
-                  </span>
-                </div>
+                  <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Tratamiento e Indicaciones</label>
+                    <textarea
+                      className="form-input"
+                      style={{ flex: 1, minHeight: '80px', padding: '0.6rem', resize: 'none', fontSize: '0.88rem' }}
+                      placeholder="Detalla la dosis, medicamentos y recomendaciones..."
+                      value={treatment}
+                      onChange={(e) => setTreatment(e.target.value)}
+                    />
+                  </div>
 
-                <button type="submit" className="btn-premium" style={{ width: '100%', justifyContent: 'center' }}>
-                  Enviar Receta y Finalizar
-                </button>
-              </form>
+                  <div style={{ background: 'hsla(var(--success), 0.05)', border: '1px dashed hsla(var(--success), 0.3)', padding: '0.6rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'hsl(var(--success))' }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>
+                      Expediente cifrado con **AES-256**.
+                    </span>
+                  </div>
+
+                  <button type="submit" className="btn-premium" style={{ width: '100%', justifyContent: 'center', padding: '0.6rem' }}>
+                    Enviar Receta y Finalizar
+                  </button>
+                </form>
+              </div>
             ) : (
               // Vista del Paciente: Espera de receta
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', textAlign: 'center', gap: '1.5rem' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Detalles de la Videoconsulta</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', textAlign: 'center', gap: '1rem' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>Detalles de la Cita</h3>
                 
-                <div style={{ background: 'hsl(var(--bg-base))', padding: '1.5rem', borderRadius: '12px', border: '1px solid hsl(var(--border-color))' }}>
-                  <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.9rem' }}>Especialista:</p>
-                  <strong style={{ fontSize: '1.2rem', color: 'hsl(var(--primary))', display: 'block', marginTop: '0.3rem' }}>Dr. {activeAppointmentForConsultation.doctorName}</strong>
-                  <span style={{ fontSize: '0.8rem', background: 'hsla(var(--primary), 0.1)', color: 'hsl(var(--primary))', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '0.5rem' }}>{activeAppointmentForConsultation.specialty}</span>
+                <div style={{ background: 'hsl(var(--bg-base))', padding: '1rem', borderRadius: '8px', border: '1px solid hsl(var(--border-color))' }}>
+                  <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', margin: 0 }}>Especialista asignado:</p>
+                  <strong style={{ fontSize: '1.1rem', color: 'hsl(var(--primary))', display: 'block', marginTop: '0.2rem' }}>Dr. {activeAppointmentForConsultation.doctorName}</strong>
+                  <span style={{ fontSize: '0.72rem', background: 'hsla(var(--primary), 0.1)', color: 'hsl(var(--primary))', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '0.3rem' }}>{activeAppointmentForConsultation.specialty}</span>
                 </div>
 
-                <div style={{ border: '1px dashed hsl(var(--border-color))', borderRadius: '8px', padding: '1.2rem' }}>
-                  <div style={{ width: '40px', height: '40px', border: '3px solid hsla(var(--primary), 0.15)', borderTopColor: 'hsl(var(--primary))', borderRadius: '50%', margin: '0 auto 0.8rem', animation: 'spin 1s linear infinite' }}></div>
-                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>El doctor está redactando tu expediente...</strong>
-                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginTop: '0.3rem', display: 'block' }}>Tu receta encriptada se sincronizará automáticamente aquí.</span>
+                <div style={{ border: '1px dashed hsl(var(--border-color))', borderRadius: '8px', padding: '1rem' }}>
+                  <div style={{ width: '30px', height: '30px', border: '3px solid hsla(var(--primary), 0.15)', borderTopColor: 'hsl(var(--primary))', borderRadius: '50%', margin: '0 auto 0.6rem', animation: 'spin 1s linear infinite' }}></div>
+                  <strong style={{ display: 'block', fontSize: '0.85rem' }}>El doctor está redactando tu receta...</strong>
+                  <span style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', marginTop: '0.2rem', display: 'block' }}>Tu receta encriptada se guardará en tu historial al finalizar.</span>
                 </div>
               </div>
             )}
+
+            {/* CHAT DE LA CONSULTA (Unificado para ambos roles) */}
+            <div className="chat-container-consult">
+              <div style={{ background: 'hsl(var(--bg-base))', borderBottom: '1px solid hsl(var(--border-color))', padding: '0.5rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Mensajes de Consulta
+              </div>
+              <div className="chat-messages-box">
+                {chatMessages.map((m, idx) => (
+                  <div key={idx} className={`chat-message-row ${m.senderRole === user?.role ? 'me' : 'other'}`}>
+                    <div className="chat-bubble">
+                      <span className="chat-bubble-sender" style={{ color: m.senderRole === 'MEDICO' ? 'hsl(var(--primary))' : m.senderRole === 'SISTEMA' ? 'hsl(var(--warning))' : 'hsl(var(--secondary))' }}>
+                        {m.senderName} ({m.senderRole})
+                      </span>
+                      <span>{m.message}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={handleSendChatMessage} className="chat-input-row">
+                <input
+                  type="text"
+                  className="chat-input-text"
+                  placeholder="Escribe un mensaje..."
+                  value={newChatMessage}
+                  onChange={(e) => setNewChatMessage(e.target.value)}
+                />
+                <button type="submit" className="chat-send-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </form>
+            </div>
           </div>
         </main>
+      )}
+
+
+      {/* MODAL 1: RECETA MÉDICA DIGITAL IMPRIMIBLE */}
+      {selectedRecordForPrescription && (
+        <div className="modal-backdrop-premium" onClick={() => setSelectedRecordForPrescription(null)}>
+          <div className="prescription-paper-container" onClick={(e) => e.stopPropagation()}>
+            
+            <div className="prescription-actions-header">
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Vista de Receta Médica Cifrada
+              </span>
+              <div style={{ display: 'flex', gap: '0.8rem' }}>
+                <button
+                  type="button"
+                  className="btn-premium"
+                  style={{ padding: '0.4rem 1rem', fontSize: '0.82rem' }}
+                  onClick={() => window.print()}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  Imprimir / PDF
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  style={{ padding: '0.4rem 1rem', fontSize: '0.82rem' }}
+                  onClick={() => setSelectedRecordForPrescription(null)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+
+            <div className="prescription-print-body">
+              <div>
+                <div className="prescription-clinic-header">
+                  <div className="clinic-brand-info">
+                    <h2>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                      Centro de Salud TeleMedica
+                    </h2>
+                    <p>Cuidado de Salud de Alta Gama en Tiempo Real</p>
+                    <p style={{ fontSize: '0.7rem', color: '#94a3b8', margin: 0 }}>Av. de la Salud 102, Ciudad de México | Tel: (55) 1234-5678</p>
+                  </div>
+                  <div className="doctor-prescriber-info">
+                    <strong>Dr. {selectedRecordForPrescription.doctorName}</strong>
+                    <div>Médico Especialista</div>
+                    <div style={{ color: '#06b6d4', fontWeight: 600 }}>Cédula Prof. Mock-9923451</div>
+                  </div>
+                </div>
+
+                <div className="prescription-patient-card">
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Paciente</span>
+                    <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{selectedRecordForPrescription.patientName}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Fecha de Emisión</span>
+                    <strong style={{ color: '#0f172a' }}>{new Date(selectedRecordForPrescription.date).toLocaleDateString('es-MX', { dateStyle: 'long' })}</strong>
+                  </div>
+                </div>
+
+                <div className="prescription-rx-symbol">Rx</div>
+
+                <div className="prescription-rx-content">
+                  <div className="prescription-rx-section">
+                    <h4>Diagnóstico Clínico</h4>
+                    <p>{selectedRecordForPrescription.diagnosis}</p>
+                  </div>
+                  <div className="prescription-rx-section" style={{ marginTop: '1.5rem' }}>
+                    <h4>Indicaciones de Tratamiento</h4>
+                    <p style={{ lineHeight: '1.6' }}>{selectedRecordForPrescription.treatment}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="prescription-footer-sign">
+                <div className="seal-box">
+                  <div style={{ fontSize: '0.45rem', marginBottom: '2px' }}>TELEMEDICA</div>
+                  <div style={{ fontSize: '0.55rem', fontWeight: 800, color: '#059669' }}>VALIDADA</div>
+                  <div style={{ fontSize: '0.45rem', marginTop: '2px' }}>DIGITAL</div>
+                </div>
+                
+                <div className="signature-box">
+                  <div className="signature-line">Dr. {selectedRecordForPrescription.doctorName.split(' ')[0]}</div>
+                  <div className="signature-bar"></div>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>Firma Electrónica del Especialista</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: PERFIL DETALLADO DE MÉDICO */}
+      {activeDoctorForProfileModal && (
+        <div className="modal-backdrop-premium" onClick={() => setActiveDoctorForProfileModal(null)}>
+          <div className="auth-card" style={{ maxWidth: '480px', background: 'hsl(var(--bg-surface))', border: '1px solid hsl(var(--border-color))' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid hsl(var(--border-color))', paddingBottom: '1rem', marginBottom: '1.2rem' }}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0 }}>Perfil del Especialista</h2>
+              <button type="button" className="control-btn" style={{ width: '28px', height: '28px', fontSize: '0.8rem' }} onClick={() => setActiveDoctorForProfileModal(null)}>X</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div className="doctor-card-avatar" style={{ width: '80px', height: '80px', fontSize: '1.8rem' }}>
+                {activeDoctorForProfileModal.name.charAt(0).toUpperCase()}
+              </div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', margin: '4px 0' }}>Dr. {activeDoctorForProfileModal.name}</h3>
+              <span className="doctor-card-spec" style={{ fontSize: '0.85rem' }}>{activeDoctorForProfileModal.specialty || 'Medicina General'}</span>
+              
+              <div className="doctor-card-rating" style={{ margin: '8px 0 0 0' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <strong>{(4.7 + (activeDoctorForProfileModal.name.length % 4) * 0.1).toFixed(1)}</strong>
+                <span style={{ color: 'hsl(var(--text-muted))', fontSize: '0.75rem' }}>(34 opiniones de pacientes)</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'hsl(var(--bg-base))', padding: '1rem', borderRadius: '8px', border: '1px solid hsl(var(--border-color))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'left' }}>
+              <div>
+                <strong style={{ color: 'hsl(var(--primary))', display: 'block', marginBottom: '2px' }}>Biografía Profesional:</strong>
+                <span style={{ color: 'hsl(var(--text-muted))' }}>
+                  Especialista de alta gama egresado con honores, con más de 10 años de experiencia clínica internacional. Apasionado por el diagnóstico preciso mediante videoconsultas interactivas.
+                </span>
+              </div>
+              <div>
+                <strong style={{ color: 'hsl(var(--primary))', display: 'block', marginBottom: '2px' }}>Costo de Videoconsulta:</strong>
+                <span style={{ fontWeight: 700, color: 'white' }}>$800.00 MXN <span style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 400 }}>(Tarifa única Stripe autorizada)</span></span>
+              </div>
+
+              <div>
+                <strong style={{ color: 'hsl(var(--primary))', display: 'block', marginBottom: '4px' }}>Días y Horarios hábiles registrados:</strong>
+                {selectedDoctorSchedule.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                    {selectedDoctorSchedule.map((s, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                        <span style={{ color: 'hsl(var(--text-muted))' }}>{s.dayOfWeek}:</span>
+                        <strong style={{ color: 'white' }}>{s.startTime} - {s.endTime}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: 'hsl(var(--text-muted))', fontStyle: 'italic', fontSize: '0.78rem' }}>
+                    Disponible toda la semana para teleconsulta inmediata.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={() => setActiveDoctorForProfileModal(null)}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                className="btn-premium"
+                style={{ flex: 2, justifyContent: 'center' }}
+                onClick={() => {
+                  setSelectedDoctorId(activeDoctorForProfileModal.id);
+                  setActiveDoctorForProfileModal(null);
+                  showToast('success', `Dr. ${activeDoctorForProfileModal.name} seleccionado. Completa el horario en la parte superior derecha.`);
+                }}
+              >
+                Agendar Consulta
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast Notification Container */}
@@ -1180,6 +1821,8 @@ export default function App() {
         <div className={`toast-notification ${toast.type}`}>
           {toast.type === 'success' ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: 'hsl(var(--success))' }}><polyline points="20 6 9 17 4 12"/></svg>
+          ) : toast.type === 'warning' ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: 'hsl(var(--warning))' }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           ) : (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: 'hsl(var(--error))' }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           )}

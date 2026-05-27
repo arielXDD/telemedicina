@@ -40,6 +40,9 @@ services:
       - AUTH_SERVICE_PORT=8001
       - APPOINTMENT_SERVICE_PORT=8002
       - CLINICAL_HISTORY_SERVICE_PORT=8003
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:8002
+      - CLINICAL_HISTORY_SERVICE_URL=http://clinical-history-service:8003
       - JWT_SECRET=jwt-telemedicina-ultra-secret-key-xyz
       - ENCRYPTION_KEY=ab12cd34ef56gh78ij90kl12mn34op56
     depends_on:

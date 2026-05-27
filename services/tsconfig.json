@@ -21,6 +21,10 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "noFallthroughCasesInSwitch": true,
-    "paths": {}
+    "paths": {
+      "@prisma/client-auth": ["node_modules/@prisma/client-auth"],
+      "@prisma/client-appointments": ["node_modules/@prisma/client-appointments"],
+      "@prisma/client-clinical-history": ["node_modules/@prisma/client-clinical-history"]
+    }
   }
 }

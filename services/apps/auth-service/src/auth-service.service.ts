@@ -22,13 +22,9 @@ export class AuthServiceService {
 
     // Lógica especial de registro seguro para médicos
     if (dto.role === 'MEDICO') {
-      if (!dto.licenseNumber) {
-        throw new BadRequestException('La cédula profesional es obligatoria para médicos.');
-      }
-      
       const officialKey = process.env.DOCTOR_REGISTRATION_KEY || 'MED-SECURE-2026';
       if (!dto.doctorRegisterKey || dto.doctorRegisterKey !== officialKey) {
-        throw new UnauthorizedException('La clave de registro institucional de médico es incorrecta.');
+        throw new UnauthorizedException('La clave de acceso para registro de médicos es incorrecta.');
       }
     }
 

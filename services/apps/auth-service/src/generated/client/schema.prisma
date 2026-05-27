@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 generator client {
@@ -8,12 +8,14 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      String // "PACIENTE" o "MEDICO"
-  specialty String? // Especialidad médica (solo para médicos, ej: "Cardiología", "Pediatría")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          String // "PACIENTE" o "MEDICO"
+  specialty     String? // Especialidad médica (solo para médicos, ej: "Cardiología", "Pediatría")
+  licenseNumber String? // Cédula Profesional (requerido para médicos)
+  isApproved    Boolean  @default(true) // Aprobación administrativa (los médicos inician inactivos en el servicio)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

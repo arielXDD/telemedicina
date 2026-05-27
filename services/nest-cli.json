@@ -4,7 +4,7 @@
   "sourceRoot": "apps/services/src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "webpack": true,
+    "webpack": false,
     "tsConfigPath": "apps/services/tsconfig.app.json"
   },
   "monorepo": true,
@@ -31,7 +31,7 @@
     "clinical-history-service": {
       "type": "application",
       "root": "apps/clinical-history-service",
-      "entryFile": "main",
+      "entryFile": "clinical-history-service/src/main",
       "sourceRoot": "apps/clinical-history-service/src",
       "compilerOptions": {
         "tsConfigPath": "apps/clinical-history-service/tsconfig.app.json"

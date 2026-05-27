@@ -86,9 +86,6 @@ Prisma.NullTypes = NullTypes
  * Enums
  */
 exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
-  ReadUncommitted: 'ReadUncommitted',
-  ReadCommitted: 'ReadCommitted',
-  RepeatableRead: 'RepeatableRead',
   Serializable: 'Serializable'
 });
 
@@ -99,6 +96,8 @@ exports.Prisma.UserScalarFieldEnum = {
   name: 'name',
   role: 'role',
   specialty: 'specialty',
+  licenseNumber: 'licenseNumber',
+  isApproved: 'isApproved',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -106,11 +105,6 @@ exports.Prisma.UserScalarFieldEnum = {
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
-};
-
-exports.Prisma.QueryMode = {
-  default: 'default',
-  insensitive: 'insensitive'
 };
 
 exports.Prisma.NullsOrder = {
@@ -129,15 +123,15 @@ const config = {
   "previewFeatures": [],
   "clientVersion": "7.8.0",
   "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
-  "activeProvider": "postgresql",
-  "inlineSchema": "datasource db {\n  provider = \"postgresql\"\n}\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/client\"\n}\n\nmodel User {\n  id        String   @id @default(uuid())\n  email     String   @unique\n  password  String\n  name      String\n  role      String // \"PACIENTE\" o \"MEDICO\"\n  specialty String? // Especialidad médica (solo para médicos, ej: \"Cardiología\", \"Pediatría\")\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n}\n"
+  "activeProvider": "sqlite",
+  "inlineSchema": "datasource db {\n  provider = \"sqlite\"\n}\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/client\"\n}\n\nmodel User {\n  id            String   @id @default(uuid())\n  email         String   @unique\n  password      String\n  name          String\n  role          String // \"PACIENTE\" o \"MEDICO\"\n  specialty     String? // Especialidad médica (solo para médicos, ej: \"Cardiología\", \"Pediatría\")\n  licenseNumber String? // Cédula Profesional (requerido para médicos)\n  isApproved    Boolean  @default(true) // Aprobación administrativa (los médicos inician inactivos en el servicio)\n  createdAt     DateTime @default(now())\n  updatedAt     DateTime @updatedAt\n}\n"
 }
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"role\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"specialty\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"role\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"specialty\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"licenseNumber\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isApproved\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
 defineDmmfProperty(exports.Prisma, config.runtimeDataModel)
 config.parameterizationSchema = {
-  strings: JSON.parse("[\"where\",\"User.findUnique\",\"User.findUniqueOrThrow\",\"orderBy\",\"cursor\",\"User.findFirst\",\"User.findFirstOrThrow\",\"User.findMany\",\"data\",\"User.createOne\",\"User.createMany\",\"User.createManyAndReturn\",\"User.updateOne\",\"User.updateMany\",\"User.updateManyAndReturn\",\"create\",\"update\",\"User.upsertOne\",\"User.deleteOne\",\"User.deleteMany\",\"having\",\"_count\",\"_min\",\"_max\",\"User.groupBy\",\"User.aggregate\",\"AND\",\"OR\",\"NOT\",\"id\",\"email\",\"password\",\"name\",\"role\",\"specialty\",\"createdAt\",\"updatedAt\",\"equals\",\"in\",\"notIn\",\"lt\",\"lte\",\"gt\",\"gte\",\"not\",\"contains\",\"startsWith\",\"endsWith\",\"set\"]"),
-  graph: "MAkQCxoAACYAMBsAAAQAEBwAACYAMB0BAAAAAR4BAAAAAR8BACcAISABACcAISEBACcAISIBACgAISNAACkAISRAACkAIQEAAAABACABAAAAAQAgCxoAACYAMBsAAAQAEBwAACYAMB0BACcAIR4BACcAIR8BACcAISABACcAISEBACcAISIBACgAISNAACkAISRAACkAIQEiAAAqACADAAAABAAgAwAABQAwBAAAAQAgAwAAAAQAIAMAAAUAMAQAAAEAIAMAAAAEACADAAAFADAEAAABACAIHQEAAAABHgEAAAABHwEAAAABIAEAAAABIQEAAAABIgEAAAABI0AAAAABJEAAAAABAQgAAAkAIAgdAQAAAAEeAQAAAAEfAQAAAAEgAQAAAAEhAQAAAAEiAQAAAAEjQAAAAAEkQAAAAAEBCAAACwAwAQgAAAsAMAgdAQAuACEeAQAuACEfAQAuACEgAQAuACEhAQAuACEiAQAvACEjQAAwACEkQAAwACECAAAAAQAgCAAADgAgCB0BAC4AIR4BAC4AIR8BAC4AISABAC4AISEBAC4AISIBAC8AISNAADAAISRAADAAIQIAAAAEACAIAAAQACACAAAABAAgCAAAEAAgAwAAAAEAIA8AAAkAIBAAAA4AIAEAAAABACABAAAABAAgBBUAACsAIBYAAC0AIBcAACwAICIAACoAIAsaAAAaADAbAAAXABAcAAAaADAdAQAbACEeAQAbACEfAQAbACEgAQAbACEhAQAbACEiAQAcACEjQAAdACEkQAAdACEDAAAABAAgAwAAFgAwFAAAFwAgAwAAAAQAIAMAAAUAMAQAAAEAIAsaAAAaADAbAAAXABAcAAAaADAdAQAbACEeAQAbACEfAQAbACEgAQAbACEhAQAbACEiAQAcACEjQAAdACEkQAAdACEOFQAAHwAgFgAAJQAgFwAAJQAgJQEAAAABJgEAAAAEJwEAAAAEKAEAAAABKQEAAAABKgEAAAABKwEAAAABLAEAJAAhLQEAAAABLgEAAAABLwEAAAABDhUAACIAIBYAACMAIBcAACMAICUBAAAAASYBAAAABScBAAAABSgBAAAAASkBAAAAASoBAAAAASsBAAAAASwBACEAIS0BAAAAAS4BAAAAAS8BAAAAAQsVAAAfACAWAAAgACAXAAAgACAlQAAAAAEmQAAAAAQnQAAAAAQoQAAAAAEpQAAAAAEqQAAAAAErQAAAAAEsQAAeACELFQAAHwAgFgAAIAAgFwAAIAAgJUAAAAABJkAAAAAEJ0AAAAAEKEAAAAABKUAAAAABKkAAAAABK0AAAAABLEAAHgAhCCUCAAAAASYCAAAABCcCAAAABCgCAAAAASkCAAAAASoCAAAAASsCAAAAASwCAB8AIQglQAAAAAEmQAAAAAQnQAAAAAQoQAAAAAEpQAAAAAEqQAAAAAErQAAAAAEsQAAgACEOFQAAIgAgFgAAIwAgFwAAIwAgJQEAAAABJgEAAAAFJwEAAAAFKAEAAAABKQEAAAABKgEAAAABKwEAAAABLAEAIQAhLQEAAAABLgEAAAABLwEAAAABCCUCAAAAASYCAAAABScCAAAABSgCAAAAASkCAAAAASoCAAAAASsCAAAAASwCACIAIQslAQAAAAEmAQAAAAUnAQAAAAUoAQAAAAEpAQAAAAEqAQAAAAErAQAAAAEsAQAjACEtAQAAAAEuAQAAAAEvAQAAAAEOFQAAHwAgFgAAJQAgFwAAJQAgJQEAAAABJgEAAAAEJwEAAAAEKAEAAAABKQEAAAABKgEAAAABKwEAAAABLAEAJAAhLQEAAAABLgEAAAABLwEAAAABCyUBAAAAASYBAAAABCcBAAAABCgBAAAAASkBAAAAASoBAAAAASsBAAAAASwBACUAIS0BAAAAAS4BAAAAAS8BAAAAAQsaAAAmADAbAAAEABAcAAAmADAdAQAnACEeAQAnACEfAQAnACEgAQAnACEhAQAnACEiAQAoACEjQAApACEkQAApACELJQEAAAABJgEAAAAEJwEAAAAEKAEAAAABKQEAAAABKgEAAAABKwEAAAABLAEAJQAhLQEAAAABLgEAAAABLwEAAAABCyUBAAAAASYBAAAABScBAAAABSgBAAAAASkBAAAAASoBAAAAASsBAAAAASwBACMAIS0BAAAAAS4BAAAAAS8BAAAAAQglQAAAAAEmQAAAAAQnQAAAAAQoQAAAAAEpQAAAAAEqQAAAAAErQAAAAAEsQAAgACEAAAAAATABAAAAAQEwAQAAAAEBMEAAAAABAAAAAAMVAAYWAAcXAAgAAAADFQAGFgAHFwAIAQIBAgMBBQYBBgcBBwgBCQoBCgwCCw0DDA8BDRECDhIEERMBEhQBExUCGBgFGRkJ"
+  strings: JSON.parse("[\"where\",\"User.findUnique\",\"User.findUniqueOrThrow\",\"orderBy\",\"cursor\",\"User.findFirst\",\"User.findFirstOrThrow\",\"User.findMany\",\"data\",\"User.createOne\",\"User.createMany\",\"User.createManyAndReturn\",\"User.updateOne\",\"User.updateMany\",\"User.updateManyAndReturn\",\"create\",\"update\",\"User.upsertOne\",\"User.deleteOne\",\"User.deleteMany\",\"having\",\"_count\",\"_min\",\"_max\",\"User.groupBy\",\"User.aggregate\",\"AND\",\"OR\",\"NOT\",\"id\",\"email\",\"password\",\"name\",\"role\",\"specialty\",\"licenseNumber\",\"isApproved\",\"createdAt\",\"updatedAt\",\"equals\",\"in\",\"notIn\",\"lt\",\"lte\",\"gt\",\"gte\",\"not\",\"contains\",\"startsWith\",\"endsWith\",\"set\"]"),
+  graph: "NQkQDRoAACkAMBsAAAQAEBwAACkAMB0BAAAAAR4BAAAAAR8BACoAISABACoAISEBACoAISIBACsAISMBACsAISQgACwAISVAAC0AISZAAC0AIQEAAAABACABAAAAAQAgDRoAACkAMBsAAAQAEBwAACkAMB0BACoAIR4BACoAIR8BACoAISABACoAISEBACoAISIBACsAISMBACsAISQgACwAISVAAC0AISZAAC0AIQIiAAAuACAjAAAuACADAAAABAAgAwAABQAwBAAAAQAgAwAAAAQAIAMAAAUAMAQAAAEAIAMAAAAEACADAAAFADAEAAABACAKHQEAAAABHgEAAAABHwEAAAABIAEAAAABIQEAAAABIgEAAAABIwEAAAABJCAAAAABJUAAAAABJkAAAAABAQgAAAkAIAodAQAAAAEeAQAAAAEfAQAAAAEgAQAAAAEhAQAAAAEiAQAAAAEjAQAAAAEkIAAAAAElQAAAAAEmQAAAAAEBCAAACwAwAQgAAAsAMAodAQAyACEeAQAyACEfAQAyACEgAQAyACEhAQAyACEiAQAzACEjAQAzACEkIAA0ACElQAA1ACEmQAA1ACECAAAAAQAgCAAADgAgCh0BADIAIR4BADIAIR8BADIAISABADIAISEBADIAISIBADMAISMBADMAISQgADQAISVAADUAISZAADUAIQIAAAAEACAIAAAQACACAAAABAAgCAAAEAAgAwAAAAEAIA8AAAkAIBAAAA4AIAEAAAABACABAAAABAAgBRUAAC8AIBYAADEAIBcAADAAICIAAC4AICMAAC4AIA0aAAAaADAbAAAXABAcAAAaADAdAQAbACEeAQAbACEfAQAbACEgAQAbACEhAQAbACEiAQAcACEjAQAcACEkIAAdACElQAAeACEmQAAeACEDAAAABAAgAwAAFgAwFAAAFwAgAwAAAAQAIAMAAAUAMAQAAAEAIA0aAAAaADAbAAAXABAcAAAaADAdAQAbACEeAQAbACEfAQAbACEgAQAbACEhAQAbACEiAQAcACEjAQAcACEkIAAdACElQAAeACEmQAAeACEOFQAAIAAgFgAAKAAgFwAAKAAgJwEAAAABKAEAAAAEKQEAAAAEKgEAAAABKwEAAAABLAEAAAABLQEAAAABLgEAJwAhLwEAAAABMAEAAAABMQEAAAABDhUAACUAIBYAACYAIBcAACYAICcBAAAAASgBAAAABSkBAAAABSoBAAAAASsBAAAAASwBAAAAAS0BAAAAAS4BACQAIS8BAAAAATABAAAAATEBAAAAAQUVAAAgACAWAAAjACAXAAAjACAnIAAAAAEuIAAiACELFQAAIAAgFgAAIQAgFwAAIQAgJ0AAAAABKEAAAAAEKUAAAAAEKkAAAAABK0AAAAABLEAAAAABLUAAAAABLkAAHwAhCxUAACAAIBYAACEAIBcAACEAICdAAAAAAShAAAAABClAAAAABCpAAAAAAStAAAAAASxAAAAAAS1AAAAAAS5AAB8AIQgnAgAAAAEoAgAAAAQpAgAAAAQqAgAAAAErAgAAAAEsAgAAAAEtAgAAAAEuAgAgACEIJ0AAAAABKEAAAAAEKUAAAAAEKkAAAAABK0AAAAABLEAAAAABLUAAAAABLkAAIQAhBRUAACAAIBYAACMAIBcAACMAICcgAAAAAS4gACIAIQInIAAAAAEuIAAjACEOFQAAJQAgFgAAJgAgFwAAJgAgJwEAAAABKAEAAAAFKQEAAAAFKgEAAAABKwEAAAABLAEAAAABLQEAAAABLgEAJAAhLwEAAAABMAEAAAABMQEAAAABCCcCAAAAASgCAAAABSkCAAAABSoCAAAAASsCAAAAASwCAAAAAS0CAAAAAS4CACUAIQsnAQAAAAEoAQAAAAUpAQAAAAUqAQAAAAErAQAAAAEsAQAAAAEtAQAAAAEuAQAmACEvAQAAAAEwAQAAAAExAQAAAAEOFQAAIAAgFgAAKAAgFwAAKAAgJwEAAAABKAEAAAAEKQEAAAAEKgEAAAABKwEAAAABLAEAAAABLQEAAAABLgEAJwAhLwEAAAABMAEAAAABMQEAAAABCycBAAAAASgBAAAABCkBAAAABCoBAAAAASsBAAAAASwBAAAAAS0BAAAAAS4BACgAIS8BAAAAATABAAAAATEBAAAAAQ0aAAApADAbAAAEABAcAAApADAdAQAqACEeAQAqACEfAQAqACEgAQAqACEhAQAqACEiAQArACEjAQArACEkIAAsACElQAAtACEmQAAtACELJwEAAAABKAEAAAAEKQEAAAAEKgEAAAABKwEAAAABLAEAAAABLQEAAAABLgEAKAAhLwEAAAABMAEAAAABMQEAAAABCycBAAAAASgBAAAABSkBAAAABSoBAAAAASsBAAAAASwBAAAAAS0BAAAAAS4BACYAIS8BAAAAATABAAAAATEBAAAAAQInIAAAAAEuIAAjACEIJ0AAAAABKEAAAAAEKUAAAAAEKkAAAAABK0AAAAABLEAAAAABLUAAAAABLkAAIQAhAAAAAAEyAQAAAAEBMgEAAAABATIgAAAAAQEyQAAAAAEAAAAAAxUABhYABxcACAAAAAMVAAYWAAcXAAgBAgECAwEFBgEGBwEHCAEJCgEKDAILDQMMDwENEQIOEgQREwESFAETFQIYGAUZGQk"
 }
 config.compilerWasm = {
   getRuntime: async () => require('./query_compiler_fast_bg.js'),

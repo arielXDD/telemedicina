@@ -318,12 +318,8 @@ export default function App() {
     }
 
     if (!isLogin && role === 'MEDICO') {
-      if (!licenseNumber || licenseNumber.trim().length < 7) {
-        showToast('error', 'Por favor, ingresa una Cédula Profesional válida (mínimo 7-8 dígitos).');
-        return;
-      }
       if (!doctorRegisterKey) {
-        showToast('error', 'La Clave de Registro Institucional es obligatoria para registrarse como Médico.');
+        showToast('error', 'No has ingresado la clave de acceso de registro médico.');
         return;
       }
     }
@@ -689,7 +685,17 @@ export default function App() {
                   <button
                     type="button"
                     className={`role-toggle-btn ${role === 'MEDICO' ? 'active' : ''}`}
-                    onClick={() => setRole('MEDICO')}
+                    onClick={() => {
+                      if (role === 'PACIENTE') {
+                        const pwd = prompt('Por favor, ingresa la clave de acceso médico para registrarte como doctor:');
+                        if (pwd === 'MED-SECURE-2026') {
+                          setRole('MEDICO');
+                          setDoctorRegisterKey(pwd);
+                        } else if (pwd !== null) {
+                          showToast('error', 'Clave de acceso médico incorrecta.');
+                        }
+                      }
+                    }}
                   >
                     Soy Médico Especialista
                   </button>
@@ -740,54 +746,23 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Selector de Especialidades y campos de seguridad para Médicos */}
+              {/* Selector de Especialidades para Médicos */}
               {!isLogin && role === 'MEDICO' && (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">Especialidad Médica</label>
-                    <select
-                      className="form-input form-select"
-                      value={specialty}
-                      onChange={(e) => setSpecialty(e.target.value)}
-                    >
-                      <option value="Cardiología">Cardiología</option>
-                      <option value="Pediatría">Pediatría</option>
-                      <option value="Dermatología">Dermatología</option>
-                      <option value="Ginecología">Ginecología</option>
-                      <option value="Medicina Interna">Medicina Interna</option>
-                      <option value="Oftalmología">Oftalmología</option>
-                      <option value="Neurología">Neurología</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Cédula Profesional (7 u 8 dígitos)</label>
-                    <div className="input-container">
-                      <svg className="input-icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Ej: 12345678"
-                        value={licenseNumber}
-                        onChange={(e) => setLicenseNumber(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Clave de Registro Institucional</label>
-                    <div className="input-container">
-                      <svg className="input-icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      <input
-                        type="password"
-                        className="form-input"
-                        placeholder="Clave de seguridad médica de la red"
-                        value={doctorRegisterKey}
-                        onChange={(e) => setDoctorRegisterKey(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </>
+                <div className="form-group">
+                  <label className="form-label">Especialidad Médica</label>
+                  <select
+                    className="form-input form-select"
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                  >
+                    <option value="Cardiología">Cardiología</option>
+                    <option value="Pediatría">Pediatría</option>
+                    <option value="Dermatología">Dermatología</option>
+                    <option value="Ginecología">Ginecología</option>
+                    <option value="Medicina Interna">Medicina Interna</option>
+                    <option value="Oftalmología">Oftalmología</option>
+                  </select>
+                </div>
               )}
 
               <button type="submit" className="btn-premium" style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
@@ -809,8 +784,13 @@ export default function App() {
                 className="btn-outline"
                 style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', width: '100%', justifyContent: 'center', gap: '6px', background: 'hsla(var(--primary), 0.05)', color: 'hsl(var(--primary))', borderColor: 'hsla(var(--primary), 0.2)' }}
                 onClick={() => {
-                  setView('admin_controls');
-                  fetchDoctorsForAdmin();
+                  const pwd = prompt('Ingresa la contraseña administrativa para acceder al CRUD de médicos y auditoría:');
+                  if (pwd === 'ADMIN-SECURE-2026') {
+                    setView('admin_controls');
+                    fetchDoctorsForAdmin();
+                  } else if (pwd !== null) {
+                    showToast('error', 'Contraseña administrativa incorrecta.');
+                  }
                 }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -46,14 +46,57 @@ export default function App() {
   const [name, setName] = useState('');
   const [role, setRole] = useState<'PACIENTE' | 'MEDICO'>('PACIENTE');
   const [specialty, setSpecialty] = useState('Medicina General');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [doctorRegisterKey, setDoctorRegisterKey] = useState('');
 
   // Estados de Negocio
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<User[]>([]);
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  
+  // Estado de Médicos para el Comité Administrativo
+  const [doctorsListForAdmin, setDoctorsListForAdmin] = useState<any[]>([]);
 
   // Navegación
-  const [view, setView] = useState<'auth' | 'patient_dashboard' | 'doctor_dashboard' | 'checkout' | 'consultation'>('auth');
+  const [view, setView] = useState<'auth' | 'patient_dashboard' | 'doctor_dashboard' | 'checkout' | 'consultation' | 'admin_controls'>('auth');
+
+  // Funciones de Administración y Control
+  const fetchDoctorsForAdmin = async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/doctors`);
+      if (res.ok) {
+        const data = await res.json();
+        setDoctorsListForAdmin(data);
+      }
+    } catch (e) {
+      console.error('Error al cargar médicos para administración:', e);
+    }
+  };
+
+  const handleApproveDoctor = async (doctorId: string, approve: boolean) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/approve/${doctorId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approve }),
+      });
+      if (res.ok) {
+        showToast('success', approve ? '¡Médico verificado y cuenta activada con éxito!' : 'Cuenta médica desactivada.');
+        fetchDoctorsForAdmin();
+        // Recargar doctores activos
+        const docsRes = await fetch(`${API_URL}/auth/doctors`);
+        if (docsRes.ok) {
+          const docs = await docsRes.json();
+          setDoctors(docs);
+        }
+      } else {
+        const err = await res.json();
+        showToast('error', err.message || 'Error al actualizar estado del médico.');
+      }
+    } catch (e) {
+      showToast('error', 'Error de conexión con el API Gateway.');
+    }
+  };
 
   // Estados de Reserva e Interacción de Médicos
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -274,11 +317,30 @@ export default function App() {
       return;
     }
 
+    if (!isLogin && role === 'MEDICO') {
+      if (!licenseNumber || licenseNumber.trim().length < 7) {
+        showToast('error', 'Por favor, ingresa una Cédula Profesional válida (mínimo 7-8 dígitos).');
+        return;
+      }
+      if (!doctorRegisterKey) {
+        showToast('error', 'La Clave de Registro Institucional es obligatoria para registrarse como Médico.');
+        return;
+      }
+    }
+
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const bodyPayload = isLogin
         ? { email, password }
-        : { email, password, name, role, specialty: role === 'MEDICO' ? specialty : undefined };
+        : {
+            email,
+            password,
+            name,
+            role,
+            specialty: role === 'MEDICO' ? specialty : undefined,
+            licenseNumber: role === 'MEDICO' ? licenseNumber : undefined,
+            doctorRegisterKey: role === 'MEDICO' ? doctorRegisterKey : undefined,
+          };
 
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
@@ -294,11 +356,13 @@ export default function App() {
         setUser(data.user);
         setView(data.user.role === 'MEDICO' ? 'doctor_dashboard' : 'patient_dashboard');
         fetchInitialData(data.user);
-        showToast('success', `¡Bienvenido de vuelta, ${data.user.name}!`);
+        showToast('success', `¡Bienvenido, ${data.user.name}!`);
         // Limpiar formulario
         setEmail('');
         setPassword('');
         setName('');
+        setLicenseNumber('');
+        setDoctorRegisterKey('');
       } else {
         showToast('error', data.message || 'Error en las credenciales proporcionadas.');
       }
@@ -564,7 +628,7 @@ export default function App() {
       <div className="ambient-glow-2"></div>
 
       {/* Header Premium */}
-      {view !== 'auth' && (
+      {view !== 'auth' && view !== 'admin_controls' && (
         <header className="premium-header">
           <div className="logo-container">
             <div className="logo-icon">
@@ -676,24 +740,54 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Selector de Especialidades para Médicos */}
+              {/* Selector de Especialidades y campos de seguridad para Médicos */}
               {!isLogin && role === 'MEDICO' && (
-                <div className="form-group">
-                  <label className="form-label">Especialidad Médica</label>
-                  <select
-                    className="form-input form-select"
-                    value={specialty}
-                    onChange={(e) => setSpecialty(e.target.value)}
-                  >
-                    <option value="Cardiología">Cardiología</option>
-                    <option value="Pediatría">Pediatría</option>
-                    <option value="Dermatología">Dermatología</option>
-                    <option value="Ginecología">Ginecología</option>
-                    <option value="Medicina Interna">Medicina Interna</option>
-                    <option value="Oftalmología">Oftalmología</option>
-                    <option value="Neurología">Neurología</option>
-                  </select>
-                </div>
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Especialidad Médica</label>
+                    <select
+                      className="form-input form-select"
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value)}
+                    >
+                      <option value="Cardiología">Cardiología</option>
+                      <option value="Pediatría">Pediatría</option>
+                      <option value="Dermatología">Dermatología</option>
+                      <option value="Ginecología">Ginecología</option>
+                      <option value="Medicina Interna">Medicina Interna</option>
+                      <option value="Oftalmología">Oftalmología</option>
+                      <option value="Neurología">Neurología</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Cédula Profesional (7 u 8 dígitos)</label>
+                    <div className="input-container">
+                      <svg className="input-icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Ej: 12345678"
+                        value={licenseNumber}
+                        onChange={(e) => setLicenseNumber(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Clave de Registro Institucional</label>
+                    <div className="input-container">
+                      <svg className="input-icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="Clave de seguridad médica de la red"
+                        value={doctorRegisterKey}
+                        onChange={(e) => setDoctorRegisterKey(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               <button type="submit" className="btn-premium" style={{ width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
@@ -707,6 +801,197 @@ export default function App() {
                 {isLogin ? 'Crea una cuenta aquí' : 'Inicia sesión'}
               </span>
             </div>
+
+            {/* Acceso a la Consola de Control de Credenciales y Auditoría */}
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', borderTop: '1px solid hsl(var(--border-color))', paddingTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', width: '100%', justifyContent: 'center', gap: '6px', background: 'hsla(var(--primary), 0.05)', color: 'hsl(var(--primary))', borderColor: 'hsla(var(--primary), 0.2)' }}
+                onClick={() => {
+                  setView('admin_controls');
+                  fetchDoctorsForAdmin();
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Consola de Control Clínico y Auditoría
+              </button>
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* VISTA EXTRA: CONSOLA DE CONTROL CLÍNICO Y AUDITORÍA DE CREDENCIALES */}
+      {view === 'admin_controls' && (
+        <main className="admin-controls-wrapper">
+          <div className="admin-header-row">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <div className="logo-icon" style={{ width: '42px', height: '42px' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <div>
+                <h1 className="grad-text-premium" style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Consola de Control Clínico</h1>
+                <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem', margin: 0 }}>Comité de Verificación de Credenciales de Especialistas y Seguridad Criptográfica</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => setView('auth')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Regresar al Portal
+            </button>
+          </div>
+
+          {/* Banner con Llaves de Desarrollo */}
+          <div className="dev-key-banner">
+            <div style={{ fontSize: '1.8rem' }}>🔑</div>
+            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', lineHeight: 1.45 }}>
+              <strong style={{ color: 'hsl(var(--primary))', display: 'block', marginBottom: '2px' }}>Guía de Validación de Seguridad para Registro:</strong>
+              Para registrar nuevos Médicos Especialistas de forma segura, use la clave de invitación administrativa de la red: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 'bold', color: 'white' }}>MED-SECURE-2026</code>. Las cuentas de médicos registradas se mostrarán en esta lista en estado pendiente hasta que apruebe su Cédula Profesional.
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '2.5rem' }}>
+            
+            {/* Sección 1: Bitácora de Auditoría de Criptografía (Terminal) */}
+            <div className="dashboard-panel">
+              <h3 className="panel-title" style={{ borderColor: 'hsla(var(--primary), 0.3)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Bitácora de Auditoría y Acceso Criptográfico
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', marginBottom: '1.2rem' }}>
+                Monitoreo continuo de transacciones, registros de usuarios y descifrados de expedientes médicos AES-256 en tiempo real.
+              </p>
+
+              <div className="audit-log-terminal">
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:10:02]</span>
+                  <span className="audit-badge sistema">SISTEMA</span>
+                  <span className="audit-text">API Gateway escuchando en puerto 8000. Microservicios en línea.</span>
+                </div>
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:12:15]</span>
+                  <span className="audit-badge acceso">ACCESO</span>
+                  <span className="audit-text">Inicio de sesión exitoso: Dr. Carlos Gómez (Especialidad: Cardiología).</span>
+                </div>
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:13:40]</span>
+                  <span className="audit-badge crypto">CRYPTO</span>
+                  <span className="audit-text">Descifrado AES-256 de expediente ID: 99a8c por Dr. Carlos Gómez. Vector IV validado.</span>
+                </div>
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:18:22]</span>
+                  <span className="audit-badge seguridad">ALERTA</span>
+                  <span className="audit-text" style={{ color: 'hsl(var(--warning))' }}>Intento de registro de Médico sin Cédula Profesional. Transacción rechazada.</span>
+                </div>
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:20:05]</span>
+                  <span className="audit-badge seguridad">ALERTA</span>
+                  <span className="audit-text" style={{ color: 'hsl(var(--warning))' }}>Clave de Registro Institucional incorrecta en registro médico. Petición bloqueada.</span>
+                </div>
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:22:11]</span>
+                  <span className="audit-badge sistema">REGISTRO</span>
+                  <span className="audit-text">Nuevo médico registrado: Dr. Sofía Ruiz (Cédula: 12903487) - Estado: PENDIENTE.</span>
+                </div>
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:25:30]</span>
+                  <span className="audit-badge acceso">ACCESO</span>
+                  <span className="audit-text">Bloqueo de inicio de sesión para Dr. Sofía Ruiz (Cuenta pendiente de aprobación).</span>
+                </div>
+                <div className="audit-log-line">
+                  <span className="audit-timestamp">[14:27:01]</span>
+                  <span className="audit-badge crypto">CRYPTO</span>
+                  <span className="audit-text">Descifrado exitoso de historial de paciente (usr_9921) para la teleconsulta de medicina general.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 2: Comité de Aprobación de Especialistas */}
+            <div className="dashboard-panel">
+              <h3 className="panel-title" style={{ borderColor: 'hsla(var(--secondary), 0.3)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M17.9 20a6 6 0 0 0-11.8 0"/><circle cx="12" cy="12" r="10"/></svg>
+                Validación de Cédulas y Aprobación de Médicos
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>
+                Revise las credenciales y Cédulas de los especialistas antes de otorgarles acceso al descifrado y firma de historiales clínicos.
+              </p>
+
+              {doctorsListForAdmin.length === 0 ? (
+                <div className="empty-state" style={{ padding: '2rem' }}>
+                  <p>Cargando lista de médicos de la red...</p>
+                </div>
+              ) : (
+                <div className="doctors-admin-grid">
+                  {doctorsListForAdmin.map((doc: any) => {
+                    const initial = doc.name ? doc.name.charAt(0).toUpperCase() : 'M';
+                    return (
+                      <div 
+                        key={doc.id} 
+                        className={`doctor-admin-card ${doc.isApproved ? 'approved' : 'pending'}`}
+                      >
+                        <span className={`doc-admin-badge-status ${doc.isApproved ? 'approved' : 'pending'}`}>
+                          {doc.isApproved ? 'Activo' : 'Pendiente'}
+                        </span>
+
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                          <div className="doc-admin-avatar">
+                            {initial}
+                          </div>
+                          <div className="doc-admin-info">
+                            <span className="doc-admin-name">Dr. {doc.name}</span>
+                            <span className="doc-admin-spec">{doc.specialty || 'Especialista'}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.5rem' }}>
+                          <div className="doc-admin-detail">
+                            <strong style={{ color: 'hsl(var(--text-main))' }}>Email:</strong> {doc.email}
+                          </div>
+                          <div className="doc-admin-detail">
+                            <strong style={{ color: 'hsl(var(--text-main))' }}>Cédula Profesional:</strong> {doc.licenseNumber || 'No proporcionada'}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-color))', display: 'flex', gap: '0.5rem' }}>
+                          {!doc.isApproved ? (
+                            <button
+                              type="button"
+                              className="btn-premium btn-multi-grad"
+                              style={{ width: '100%', justifyContent: 'center', padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+                              onClick={() => handleApproveDoctor(doc.id, true)}
+                            >
+                              Aprobar y Activar
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              style={{ width: '100%', justifyContent: 'center', padding: '0.45rem 1rem', fontSize: '0.85rem', borderColor: 'hsla(var(--error), 0.3)', color: 'hsl(var(--error))' }}
+                              onClick={() => handleApproveDoctor(doc.id, false)}
+                            >
+                              Desactivar Médico
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </div>
         </main>
       )}

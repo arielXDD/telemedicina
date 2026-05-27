@@ -1381,3 +1381,284 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* -------------------------------------------------------------
+ * ACTUALIZACIONES DE DISEÑO PREMIUM, MULTI-GRADIENTES Y ANIMACIONES
+ * Añade un acabado premium de alta fidelidad con efectos de vidrios y brillos.
+ * ------------------------------------------------------------- */
+
+/* Textos y títulos con degradados móviles de 3 colores */
+.grad-text-premium {
+  background: linear-gradient(135deg, hsl(180, 85%, 44%) 0%, hsl(250, 85%, 65%) 50%, hsl(320, 85%, 60%) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: background-pan 6s infinite linear;
+}
+
+@keyframes background-pan {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Botón Premium Multi-Gradiente */
+.btn-multi-grad {
+  background: linear-gradient(135deg, hsl(180, 85%, 44%) 0%, hsl(250, 85%, 65%) 50%, hsl(320, 85%, 60%) 100%) !important;
+  background-size: 200% auto !important;
+  color: #090d16 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 20px hsla(250, 85%, 65%, 0.3) !important;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.btn-multi-grad:hover {
+  background-position: right center !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px hsla(250, 85%, 65%, 0.5), 0 0 15px hsla(180, 85%, 44%, 0.3) !important;
+}
+
+/* Tarjetas flotantes animadas */
+.doctor-card-premium, .appointment-card, .history-record-card {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.doctor-card-premium:hover {
+  transform: translateY(-5px) !important;
+  border-color: hsla(250, 85%, 65%, 0.4) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 20px hsla(250, 85%, 65%, 0.1) !important;
+}
+
+.history-record-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: hsla(180, 85%, 44%, 0.4) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 15px hsla(180, 85%, 44%, 0.1) !important;
+}
+
+/* -------------------------------------------------------------
+ * VISTA DE CONTROL CLÍNICO Y AUDITORÍA DE CREDENCIALES
+ * Estilos para la consola administrativa y bitácora de seguridad.
+ * ------------------------------------------------------------- */
+.admin-controls-wrapper {
+  flex: 1;
+  padding: 2.5rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  animation: fade-in 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.admin-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid hsl(var(--border-color));
+  padding-bottom: 1.2rem;
+}
+
+.admin-header-row h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  margin: 0;
+}
+
+/* Terminal de Auditoría de Criptografía */
+.audit-log-terminal {
+  background: #040711;
+  border: 1px solid hsla(180, 85%, 44%, 0.25);
+  border-radius: 12px;
+  padding: 1.25rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  max-height: 280px;
+  overflow-y: auto;
+  color: #38bdf8;
+  box-shadow: inset 0 0 25px rgba(0,0,0,0.95), 0 0 15px rgba(6, 182, 212, 0.05);
+}
+
+.audit-log-terminal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.audit-log-terminal::-webkit-scrollbar-thumb {
+  background: hsla(180, 85%, 44%, 0.3);
+  border-radius: 3px;
+}
+
+.audit-log-line {
+  margin-bottom: 0.5rem;
+  line-height: 1.45;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+  padding-bottom: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.audit-timestamp {
+  color: #64748b;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.audit-badge {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.audit-badge.crypto {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+}
+
+.audit-badge.acceso {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+}
+
+.audit-badge.seguridad {
+  background: rgba(234, 179, 8, 0.18);
+  color: #facc15;
+}
+
+.audit-badge.sistema {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+}
+
+.audit-text {
+  color: #e2e8f0;
+}
+
+/* Tarjetas de Médicos en el Panel de Comité */
+.doctors-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.doctor-admin-card {
+  background: hsla(var(--bg-surface-glass));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border-color));
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.doctor-admin-card:hover {
+  transform: translateY(-3px);
+  border-color: hsla(250, 85%, 65%, 0.35);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 15px hsla(250, 85%, 65%, 0.05);
+}
+
+.doctor-admin-card.pending {
+  border-left: 4px solid #eab308;
+}
+
+.doctor-admin-card.approved {
+  border-left: 4px solid #22c55e;
+}
+
+.doc-admin-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: #090d16;
+  box-shadow: 0 0 10px hsla(var(--primary), 0.3);
+}
+
+.doc-admin-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.doc-admin-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: hsl(var(--text-main));
+}
+
+.doc-admin-spec {
+  font-size: 0.82rem;
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+.doc-admin-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: hsl(var(--text-muted));
+}
+
+.doc-admin-badge-status {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.doc-admin-badge-status.pending {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.doc-admin-badge-status.approved {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Banner de Información de Llaves (Desarrollo) */
+.dev-key-banner {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px dashed hsla(180, 85%, 44%, 0.35);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 2.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.dev-key-banner::after {
+  content: 'DEBUG';
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: hsla(180, 85%, 44%, 0.25);
+  letter-spacing: 1px;
+}
+

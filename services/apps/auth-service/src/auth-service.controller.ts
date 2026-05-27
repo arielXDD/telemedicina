@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Headers, UnauthorizedException, Param } from '@nestjs/common';
 import { AuthServiceService } from './auth-service.service';
 import { RegisterDto, LoginDto } from './dtos/auth.dto';
 
@@ -34,5 +34,11 @@ export class AuthServiceController {
   @Get('doctors')
   async getDoctors() {
     return this.authService.getDoctors();
+  }
+
+  @Post('approve/:id')
+  async approveDoctor(@Param('id') id: string, @Body() body: { approve?: boolean }) {
+    const approve = body.approve !== false;
+    return this.authService.approveDoctor(id, approve);
   }
 }

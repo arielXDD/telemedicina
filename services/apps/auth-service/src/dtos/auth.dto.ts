@@ -18,6 +18,14 @@ export class RegisterDto {
   @IsOptional()
   @IsString({ message: 'La especialidad debe ser un texto.' })
   specialty?: string;
+
+  @IsOptional()
+  @IsString({ message: 'La cédula profesional debe ser un texto.' })
+  licenseNumber?: string;
+
+  @IsOptional()
+  @IsString({ message: 'La clave de registro de médico debe ser un texto.' })
+  doctorRegisterKey?: string;
 }
 
 export class LoginDto {

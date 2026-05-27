@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -20,7 +20,20 @@ export class AuthServiceService {
       throw new ConflictException('El correo electrónico ya está registrado.');
     }
 
+    // Lógica especial de registro seguro para médicos
+    if (dto.role === 'MEDICO') {
+      if (!dto.licenseNumber) {
+        throw new BadRequestException('La cédula profesional es obligatoria para médicos.');
+      }
+      
+      const officialKey = process.env.DOCTOR_REGISTRATION_KEY || 'MED-SECURE-2026';
+      if (!dto.doctorRegisterKey || dto.doctorRegisterKey !== officialKey) {
+        throw new UnauthorizedException('La clave de registro institucional de médico es incorrecta.');
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const isApproved = dto.role !== 'MEDICO'; // false para médicos, true para pacientes
 
     const user = await this.prisma.user.create({
       data: {
@@ -29,6 +42,8 @@ export class AuthServiceService {
         name: dto.name,
         role: dto.role,
         specialty: dto.role === 'MEDICO' ? dto.specialty : null,
+        licenseNumber: dto.role === 'MEDICO' ? dto.licenseNumber : null,
+        isApproved,
       },
     });
 
@@ -42,6 +57,8 @@ export class AuthServiceService {
         name: user.name,
         role: user.role,
         specialty: user.specialty,
+        licenseNumber: user.licenseNumber,
+        isApproved: user.isApproved,
       },
     };
   }
@@ -60,6 +77,13 @@ export class AuthServiceService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
+    // Si es médico, bloquear inicio de sesión si aún no está aprobado por el administrador
+    if (user.role === 'MEDICO' && !user.isApproved) {
+      throw new UnauthorizedException(
+        'Cuenta pendiente de aprobación. Su Cédula Profesional está en proceso de verificación por el comité administrativo.'
+      );
+    }
+
     const token = this.generateToken(user.id, user.email, user.role, user.name);
 
     return {
@@ -70,6 +94,8 @@ export class AuthServiceService {
         name: user.name,
         role: user.role,
         specialty: user.specialty,
+        licenseNumber: user.licenseNumber,
+        isApproved: user.isApproved,
       },
     };
   }
@@ -97,8 +123,41 @@ export class AuthServiceService {
         name: true,
         email: true,
         specialty: true,
+        licenseNumber: true,
+        isApproved: true,
       },
     });
+  }
+
+  async approveDoctor(id: string, approve: boolean = true) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new ConflictException('Médico no encontrado.');
+    }
+
+    if (user.role !== 'MEDICO') {
+      throw new ConflictException('El usuario especificado no es un médico.');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { isApproved: approve },
+    });
+
+    return {
+      success: true,
+      message: approve ? 'Cuenta médica activada con éxito.' : 'Cuenta médica desactivada.',
+      user: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        licenseNumber: updated.licenseNumber,
+        isApproved: updated.isApproved,
+      },
+    };
   }
 
   private generateToken(userId: string, email: string, role: string, name: string): string {

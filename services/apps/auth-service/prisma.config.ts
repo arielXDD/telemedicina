@@ -1,11 +1,11 @@
-import { defineConfig } from "prisma/config";
-
-export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
+import { PrismaConfig } from '@prisma/config';
+export default {
+  earlyAccess: true,
+  schema: 'prisma/schema.prisma',
   datasource: {
-    url: process.env.DATABASE_URL_AUTH || process.env.DATABASE_URL || "file:../auth.db",
+    url:
+      process.env.AUTH_DATABASE_URL ||
+      process.env.DATABASE_URL ||
+      'postgresql://postgres:postgres@localhost:5432/postgres?schema=auth',
   },
-});
+} satisfies PrismaConfig;

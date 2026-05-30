@@ -7,7 +7,12 @@ import { PrismaService } from './prisma.service';
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'jwt-telemedicina-ultra-secret-key-xyz',
+      secret: (() => {
+        if (!process.env.JWT_SECRET) {
+          throw new Error('FATAL ERROR: JWT_SECRET environment variable is missing');
+        }
+        return process.env.JWT_SECRET;
+      })(),
       signOptions: { expiresIn: '7d' }, // El token dura 7 días
     }),
   ],

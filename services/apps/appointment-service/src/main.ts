@@ -10,7 +10,7 @@ async function bootstrap() {
     transform: true,
   }));
 
-  app.enableCors();
+  
 
   const port = process.env.APPOINTMENT_SERVICE_PORT || 8002;
   await app.listen(port);

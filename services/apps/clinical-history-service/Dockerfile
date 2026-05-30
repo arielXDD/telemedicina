@@ -1,6 +1,7 @@
 FROM node:20-alpine
 WORKDIR /usr/src/app
 COPY package*.json ./
+RUN apk add --no-cache python3 make g++
 RUN npm install
 COPY . .
 
@@ -11,5 +12,4 @@ RUN npx prisma generate --schema apps/clinical-history-service/prisma/schema.pri
 RUN npm run build clinical-history-service
 
 EXPOSE 8003
-# Asegurarse de sincronizar la base de datos local SQLite antes de iniciar
-CMD ["sh", "-c", "npx prisma db push --schema apps/clinical-history-service/prisma/schema.prisma && npm run start:prod clinical-history-service"]
+CMD ["node", "dist/apps/clinical-history-service/clinical-history-service/src/main.js"]

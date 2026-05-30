@@ -1,5 +1,6 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  schemas  = ["auth"]
 }
 
 generator client {
@@ -18,4 +19,6 @@ model User {
   isApproved    Boolean  @default(true) // Aprobación administrativa (los médicos inician inactivos en el servicio)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@schema("auth")
 }

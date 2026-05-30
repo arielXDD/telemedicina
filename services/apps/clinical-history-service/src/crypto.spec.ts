@@ -18,10 +18,13 @@ describe('Criptografía de Datos de Salud (AES-256-CBC)', () => {
 
   it('debería retornar un mensaje de error si el descifrado falla con una clave o IV corrupto', () => {
     const enc = encrypt('Datos Sensibles de Prueba');
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     
     // Intentar desencriptar con un IV de prueba no hexadecimal inválido
     const dec = decrypt(enc.encryptedData, 'invalid_iv_hex');
     expect(dec).toContain('Error al descifrar');
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it('debería retornar strings vacíos si los textos a encriptar o desencriptar están vacíos', () => {

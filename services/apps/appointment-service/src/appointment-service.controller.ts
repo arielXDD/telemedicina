@@ -6,6 +6,11 @@ import { CreateAppointmentDto, UpdateAppointmentStatusDto, CreateScheduleDto } f
 export class AppointmentServiceController {
   constructor(private readonly appointmentService: AppointmentServiceService) {}
 
+  @Get('health')
+  async health() {
+    return this.appointmentService.health();
+  }
+
   @Post()
   async create(@Body() dto: CreateAppointmentDto) {
     return this.appointmentService.create(dto);

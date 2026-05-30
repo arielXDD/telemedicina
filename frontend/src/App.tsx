@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ShaderBackground from './components/ui/shader-background';
+
+import { AnimatedTicket } from './components/AnimatedTicket';
+import { CreditCardForm, type CardState, type CardValidity } from './components/CreditCardForm';
 
 // URL del API Gateway
 const API_URL = 'http://localhost:8000';
@@ -34,9 +38,44 @@ interface MedicalRecord {
   treatment: string;
 }
 
+const formatScheduleDisplay = (schedule: any[]) => {
+  const grouped: Record<string, Set<string>> = {};
+  schedule.forEach(s => {
+    const time = `${s.startTime} - ${s.endTime}`;
+    if (!grouped[time]) grouped[time] = new Set();
+    grouped[time].add(s.dayOfWeek);
+  });
+
+  const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+  const allDays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+  return Object.entries(grouped).map(([time, daysSet], idx) => {
+    const days = Array.from(daysSet);
+    let daysText = days.join(', ');
+    
+    const hasAllWeekdays = weekdays.every(d => days.includes(d));
+    const hasAllDays = allDays.every(d => days.includes(d));
+
+    if (hasAllDays) {
+      daysText = 'Todos los días';
+    } else if (hasAllWeekdays && days.length === 5) {
+      daysText = 'De lunes a viernes';
+    } else if (hasAllWeekdays && days.length === 6 && days.includes('Sábado')) {
+      daysText = 'Lunes a Sábado';
+    }
+
+    return (
+      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))', paddingBottom: '4px' }}>
+        <span>{daysText}:</span>
+        <strong style={{ color: 'hsl(var(--text-main))' }}>{time}</strong>
+      </div>
+    );
+  });
+};
+
 export default function App() {
   // Estados de Autenticación
-  const [token, setToken] = useState<string | null>(localStorage.getItem('telemed_token'));
+  const [token, setToken] = useState<string | null>(sessionStorage.getItem('telemed_token'));
   const [user, setUser] = useState<User | null>(null);
   const [isLogin, setIsLogin] = useState(true);
   
@@ -59,6 +98,8 @@ export default function App() {
 
   // Navegación
   const [view, setView] = useState<'auth' | 'patient_dashboard' | 'doctor_dashboard' | 'checkout' | 'consultation' | 'admin_controls'>('auth');
+  const [patientActiveTab, setPatientActiveTab] = useState<'citas' | 'agendar' | 'historial'>('citas');
+  const [doctorActiveTab, setDoctorActiveTab] = useState<'agenda' | 'horario' | 'diagnosticos'>('agenda');
 
   // Funciones de Administración y Control
   const fetchDoctorsForAdmin = async () => {
@@ -302,7 +343,7 @@ export default function App() {
   }, [selectedDoctorId]);
 
   const handleLogout = () => {
-    localStorage.removeItem('telemed_token');
+    sessionStorage.removeItem('telemed_token');
     setToken(null);
     setUser(null);
     setView('auth');
@@ -347,7 +388,7 @@ export default function App() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem('telemed_token', data.token);
+        sessionStorage.setItem('telemed_token', data.token);
         setToken(data.token);
         setUser(data.user);
         setView(data.user.role === 'MEDICO' ? 'doctor_dashboard' : 'patient_dashboard');
@@ -418,9 +459,18 @@ export default function App() {
   };
 
   // Simulación de Pago de Stripe
-  const handleProcessPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cardNumber || !cardHolder || !cardExpiry || !cardCvv) {
+  const handleProcessPayment = async (e?: React.FormEvent, paymentState?: CardState) => {
+    e?.preventDefault();
+    const paymentNumber = paymentState?.number ?? cardNumber;
+    const paymentHolder = paymentState?.holder ?? cardHolder;
+    const paymentExpiry = paymentState
+      ? paymentState.month && paymentState.year
+        ? `${paymentState.month}/${paymentState.year.slice(-2)}`
+        : ''
+      : cardExpiry;
+    const paymentCvv = paymentState?.cvv ?? cardCvv;
+
+    if (!paymentNumber || !paymentHolder || !paymentExpiry || !paymentCvv) {
       showToast('error', 'Completa la información de tu tarjeta.');
       return;
     }
@@ -449,6 +499,22 @@ export default function App() {
         showToast('error', 'Error al confirmar el pago en la base de datos.');
       }
     }, 2500);
+  };
+
+  const handleCardChange = (state: CardState) => {
+    setCardNumber(state.number);
+    setCardHolder(state.holder);
+    setCardExpiry(state.month && state.year ? `${state.month}/${state.year.slice(-2)}` : '');
+    setCardCvv(state.cvv);
+  };
+
+  const handleCardSubmit = (state: CardState, validity: CardValidity) => {
+    handleCardChange(state);
+    if (!validity.allValid) {
+      showToast('error', 'Revisa la información de tu tarjeta.');
+      return;
+    }
+    void handleProcessPayment(undefined, state);
   };
 
   // Iniciar Videollamada (WebRTC con cámara real!)
@@ -657,13 +723,43 @@ export default function App() {
 
       {/* VISTA 1: LOGIN Y REGISTRO */}
       {view === 'auth' && (
-        <main className="auth-wrapper">
-          <div className="auth-card">
+        <main className="auth-wrapper auth-wrapper-liquid">
+          <ShaderBackground />
+          <div className="auth-liquid-shell">
+            <section className="auth-liquid-copy" aria-label="Resumen de plataforma">
+              <div className="auth-orbit-mark">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <p className="auth-kicker">Red clínica clara y segura</p>
+              <h1>Atención médica digital con una experiencia limpia y fluida.</h1>
+              <p>
+                Citas, historial clínico protegido, pagos y videoconsultas en un portal ligero
+                orientado al cuidado continuo de pacientes y médicos verificados.
+              </p>
+              <div className="auth-metrics-strip">
+                <div>
+                  <strong>24/7</strong>
+                  <span>Acceso a consulta</span>
+                </div>
+                <div>
+                  <strong>AES</strong>
+                  <span>Expediente protegido</span>
+                </div>
+                <div>
+                  <strong>JWT</strong>
+                  <span>Sesión segura</span>
+                </div>
+              </div>
+            </section>
+
+            <div className="auth-card auth-card-liquid">
             <div className="auth-header">
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
                 <div className="logo-icon" style={{ width: '50px', height: '50px' }}>
-                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                   </svg>
                 </div>
               </div>
@@ -688,11 +784,9 @@ export default function App() {
                     onClick={() => {
                       if (role === 'PACIENTE') {
                         const pwd = prompt('Por favor, ingresa la clave de acceso médico para registrarte como doctor:');
-                        if (pwd === 'MED-SECURE-2026') {
+                        if (pwd) {
                           setRole('MEDICO');
                           setDoctorRegisterKey(pwd);
-                        } else if (pwd !== null) {
-                          showToast('error', 'Clave de acceso médico incorrecta.');
                         }
                       }
                     }}
@@ -799,6 +893,7 @@ export default function App() {
                 </svg>
                 Consola de Control Clínico y Auditoría
               </button>
+            </div>
             </div>
           </div>
         </main>
@@ -986,7 +1081,21 @@ export default function App() {
             </div>
           </div>
 
-          <div className="dashboard-grid">
+          <div className="role-toggle-group">
+            <button type="button" className={`role-toggle-btn ${patientActiveTab === 'citas' ? 'active' : ''}`} onClick={() => setPatientActiveTab('citas')}>
+              Mis Citas Pendientes
+            </button>
+            <button type="button" className={`role-toggle-btn ${patientActiveTab === 'agendar' ? 'active' : ''}`} onClick={() => setPatientActiveTab('agendar')}>
+              Agendar Consultas
+            </button>
+            <button type="button" className={`role-toggle-btn ${patientActiveTab === 'historial' ? 'active' : ''}`} onClick={() => setPatientActiveTab('historial')}>
+              Historial Clínico
+            </button>
+          </div>
+
+          <div className="dashboard-tab-content">
+            {patientActiveTab === 'citas' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Panel Principal Izquierdo: Citas del Paciente */}
             <div className="dashboard-panel">
               <h3 className="panel-title">
@@ -1054,9 +1163,13 @@ export default function App() {
                 </div>
               )}
             </div>
+              </div>
+            )}
 
+            {patientActiveTab === 'agendar' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Panel Principal Izquierdo - Directorio de Médicos Especialistas (Nuevo) */}
-            <div className="dashboard-panel" style={{ marginTop: '2.5rem' }}>
+            <div className="dashboard-panel" style={{ marginTop: '0' }}>
               <h3 className="panel-title">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M17.9 20a6 6 0 0 0-11.8 0"/><circle cx="12" cy="12" r="10"/></svg>
                 Directorio de Especialistas
@@ -1190,12 +1303,7 @@ export default function App() {
                   {selectedDoctorSchedule.length > 0 ? (
                     <div style={{ marginBottom: '0.8rem', padding: '0.6rem 0.8rem', background: 'hsla(var(--primary), 0.05)', border: '1px dashed hsla(var(--primary), 0.3)', borderRadius: '6px', fontSize: '0.75rem' }}>
                       <strong style={{ color: 'hsl(var(--primary))', display: 'block', marginBottom: '4px' }}>Horario de Atención:</strong>
-                      {selectedDoctorSchedule.map((s, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                          <span>{s.dayOfWeek}:</span>
-                          <strong style={{ color: 'hsl(var(--text-main))' }}>{s.startTime} - {s.endTime}</strong>
-                        </div>
-                      ))}
+                      {formatScheduleDisplay(selectedDoctorSchedule)}
                     </div>
                   ) : (
                     <div style={{ marginBottom: '0.8rem', padding: '0.6rem 0.8rem', background: 'hsl(var(--bg-base))', border: '1px solid hsl(var(--border-color))', borderRadius: '6px', fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontStyle: 'italic' }}>
@@ -1224,7 +1332,12 @@ export default function App() {
                   </button>
                 </form>
               </div>
+              </div>
+              </div>
+            )}
 
+            {patientActiveTab === 'historial' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
               {/* Sub-Panel 2: Historial Clínico Desencriptado AES-256 */}
               <div className="dashboard-panel">
                 <h3 className="panel-title">
@@ -1296,8 +1409,8 @@ export default function App() {
                   </>
                 )}
               </div>
-
-            </div>
+              </div>
+            )}
           </div>
         </main>
       )}
@@ -1312,7 +1425,21 @@ export default function App() {
             </div>
           </div>
 
-          <div className="dashboard-grid">
+          <div className="role-toggle-group">
+            <button type="button" className={`role-toggle-btn ${doctorActiveTab === 'agenda' ? 'active' : ''}`} onClick={() => setDoctorActiveTab('agenda')}>
+              Agenda de Pacientes
+            </button>
+            <button type="button" className={`role-toggle-btn ${doctorActiveTab === 'horario' ? 'active' : ''}`} onClick={() => setDoctorActiveTab('horario')}>
+              Mi Horario
+            </button>
+            <button type="button" className={`role-toggle-btn ${doctorActiveTab === 'diagnosticos' ? 'active' : ''}`} onClick={() => setDoctorActiveTab('diagnosticos')}>
+              Diagnósticos Emitidos
+            </button>
+          </div>
+
+          <div className="dashboard-tab-content">
+            {doctorActiveTab === 'agenda' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Panel Izquierdo: Citas del Médico */}
             <div className="dashboard-panel">
               <h3 className="panel-title">
@@ -1368,10 +1495,11 @@ export default function App() {
                 </div>
               )}
             </div>
+              </div>
+            )}
 
-            {/* Panel Derecho: Configuración de Agenda y recetas emitidas */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-              
+            {doctorActiveTab === 'horario' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
               {/* Sub-Panel 1: Configurar Agenda de Horarios */}
               <div className="dashboard-panel">
                 <h3 className="panel-title">
@@ -1440,7 +1568,11 @@ export default function App() {
                   </button>
                 </form>
               </div>
+              </div>
+            )}
 
+            {doctorActiveTab === 'diagnosticos' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
               {/* Sub-Panel 2: Diagnósticos Emitidos */}
               <div className="dashboard-panel">
                 <h3 className="panel-title">
@@ -1512,7 +1644,8 @@ export default function App() {
                   </>
                 )}
               </div>
-            </div>
+              </div>
+            )}
           </div>
         </main>
       )}
@@ -1520,12 +1653,14 @@ export default function App() {
       {/* VISTA 4: STRIPE CHECKOUT SIMULADO */}
       {view === 'checkout' && activeAppointmentForCheckout && (
         <main className="checkout-wrapper">
-          <div className="checkout-card">
+          <div className={`checkout-card ${checkoutStep === 'success' ? 'checkout-card-ticket' : ''}`}>
             <div className="checkout-header">
               <div className="checkout-header-title">
                 <div>
-                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Stripe Checkout</h2>
-                  <span style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>Pago Seguro por Encriptación SSL</span>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{checkoutStep === 'success' ? 'Ticket de compra' : 'TeleMedica Pay'}</h2>
+                  <span style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
+                    {checkoutStep === 'success' ? 'Confirmacion emitida por pasarela segura' : 'Pago seguro por encriptacion SSL'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <div style={{ background: '#635bff', color: 'white', fontWeight: 700, padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', letterSpacing: '0.5px' }}>stripe</div>
@@ -1536,30 +1671,8 @@ export default function App() {
 
             <div className="checkout-body">
               {checkoutStep === 'form' && (
-                <form onSubmit={handleProcessPayment}>
-                  {/* Tarjeta de Crédito Visual */}
-                  <div className="visual-credit-card">
-                    <div className="card-top">
-                      <div className="card-chip"></div>
-                      <div className="card-brand">{cardNumber.startsWith('4') ? 'Visa' : 'Mastercard'}</div>
-                    </div>
-                    <div className="card-number">
-                      {cardNumber ? cardNumber.replace(/(\d{4})/g, '$1 ').trim() : '•••• •••• •••• ••••'}
-                    </div>
-                    <div className="card-bottom">
-                      <div>
-                        <div style={{ fontSize: '0.6rem', opacity: 0.7 }}>Titular</div>
-                        <div>{cardHolder || 'NOMBRE DEL TITULAR'}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.6rem', opacity: 0.7 }}>Expira</div>
-                        <div>{cardExpiry || 'MM/AA'}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Resumen de cita */}
-                  <div style={{ background: 'hsl(var(--bg-base))', padding: '1.2rem', borderRadius: '8px', border: '1px solid hsl(var(--border-color))', marginBottom: '1.8rem' }}>
+                <>
+                  <div className="checkout-summary-panel">
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <span style={{ color: 'hsl(var(--text-muted))' }}>Concepto:</span>
                       <strong style={{ textAlign: 'right' }}>Dr. {activeAppointmentForCheckout.doctorName} ({activeAppointmentForCheckout.specialty})</strong>
@@ -1570,58 +1683,16 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Formulario Inputs */}
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Número de Tarjeta (Usa 4242 para Stripe de Prueba)</label>
-                    <input
-                      type="text"
-                      maxLength={16}
-                      className="form-input"
-                      style={{ paddingLeft: '1rem' }}
-                      placeholder="4242 4242 4242 4242"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ''))}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Titular de la Tarjeta</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ paddingLeft: '1rem' }}
-                      placeholder="JUAN PEREZ"
-                      value={cardHolder}
-                      onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '1.5rem' }}>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Vencimiento</label>
-                      <input
-                        type="text"
-                        maxLength={5}
-                        className="form-input"
-                        style={{ paddingLeft: '1rem' }}
-                        placeholder="MM/AA"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem' }}>CVC / CVV</label>
-                      <input
-                        type="password"
-                        maxLength={3}
-                        className="form-input"
-                        style={{ paddingLeft: '1rem' }}
-                        placeholder="123"
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                      />
-                    </div>
-                  </div>
+                  <CreditCardForm
+                    key={activeAppointmentForCheckout.id}
+                    defaultNumber={cardNumber}
+                    defaultHolder={cardHolder}
+                    maskMiddle={false}
+                    submitLabel="Pagar $800.00 MXN"
+                    incompleteLabel="Completa tarjeta"
+                    onChange={handleCardChange}
+                    onSubmit={handleCardSubmit}
+                  />
 
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                     <button
@@ -1632,11 +1703,8 @@ export default function App() {
                     >
                       Cancelar
                     </button>
-                    <button type="submit" className="btn-premium btn-secondary-glow" style={{ flex: 2, justifyContent: 'center' }}>
-                      Pagar $800.00 MXN
-                    </button>
                   </div>
-                </form>
+                </>
               )}
 
               {checkoutStep === 'processing' && (
@@ -1656,16 +1724,18 @@ export default function App() {
               )}
 
               {checkoutStep === 'success' && (
-                <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-                  <div style={{ width: '70px', height: '70px', background: 'hsla(var(--success), 0.12)', border: '2px solid hsl(var(--success))', color: 'hsl(var(--success))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
-                  <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'hsl(var(--success))' }}>¡Pago Completado!</h2>
-                  <p style={{ color: 'hsl(var(--text-muted))', margin: '0.8rem 0 2rem' }}>Tu cita ha sido confirmada en el sistema. Stripe ha enviado tu recibo electrónico.</p>
-                  
+                <div className="ticket-success-wrapper">
+                  <AnimatedTicket
+                    ticketId={`TM-${activeAppointmentForCheckout.id.slice(0, 8).toUpperCase()}`}
+                    amount={activeAppointmentForCheckout.amount || 800}
+                    date={new Date()}
+                    cardHolder={cardHolder || user?.name || 'PACIENTE'}
+                    last4Digits={cardNumber.slice(-4) || '4242'}
+                    barcodeValue={activeAppointmentForCheckout.id.slice(0, 12).toUpperCase()}
+                  />
                   <button
                     className="btn-premium"
-                    style={{ width: '200px', justifyContent: 'center' }}
+                    style={{ width: '220px', justifyContent: 'center', marginTop: '1.5rem' }}
                     onClick={() => setView('patient_dashboard')}
                   >
                     Volver al Panel
@@ -2040,12 +2110,7 @@ export default function App() {
                 <strong style={{ color: 'hsl(var(--primary))', display: 'block', marginBottom: '4px' }}>Días y Horarios hábiles registrados:</strong>
                 {selectedDoctorSchedule.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                    {selectedDoctorSchedule.map((s, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                        <span style={{ color: 'hsl(var(--text-muted))' }}>{s.dayOfWeek}:</span>
-                        <strong style={{ color: 'white' }}>{s.startTime} - {s.endTime}</strong>
-                      </div>
-                    ))}
+                    {formatScheduleDisplay(selectedDoctorSchedule)}
                   </div>
                 ) : (
                   <span style={{ color: 'hsl(var(--text-muted))', fontStyle: 'italic', fontSize: '0.78rem' }}>

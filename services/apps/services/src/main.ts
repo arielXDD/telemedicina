@@ -1,12 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import helmet from 'helmet';
 import proxy from 'express-http-proxy';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Habilitar CORS para que el Frontend pueda consumir la API
-  app.enableCors();
+    app.enableCors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
+
+  // Acceder a la instancia Express subyacente de NestJS
+  app.use(helmet());
 
   // Acceder a la instancia Express subyacente de NestJS
   const expressApp = app.getHttpAdapter().getInstance();

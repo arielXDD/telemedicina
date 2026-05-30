@@ -31,7 +31,7 @@
     "clinical-history-service": {
       "type": "application",
       "root": "apps/clinical-history-service",
-      "entryFile": "clinical-history-service/src/main",
+      "entryFile": "main",
       "sourceRoot": "apps/clinical-history-service/src",
       "compilerOptions": {
         "tsConfigPath": "apps/clinical-history-service/tsconfig.app.json"

@@ -1,5 +1,6 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  schemas  = ["clinical_history"]
 }
 
 generator client {
@@ -18,4 +19,6 @@ model MedicalRecord {
   encryptedTreatment String
   iv                 String   // Vector de inicialización de encriptación hexadecimal
   createdAt          DateTime @default(now())
+
+  @@schema("clinical_history")
 }

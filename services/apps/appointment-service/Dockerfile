@@ -1,6 +1,7 @@
 FROM node:20-alpine
 WORKDIR /usr/src/app
 COPY package*.json ./
+RUN apk add --no-cache python3 make g++
 RUN npm install
 COPY . .
 
@@ -11,5 +12,4 @@ RUN npx prisma generate --schema apps/appointment-service/prisma/schema.prisma
 RUN npm run build appointment-service
 
 EXPOSE 8002
-# Asegurarse de sincronizar la base de datos local SQLite antes de iniciar
-CMD ["sh", "-c", "npx prisma db push --schema apps/appointment-service/prisma/schema.prisma && npm run start:prod appointment-service"]
+CMD ["node", "dist/apps/appointment-service/appointment-service/src/main.js"]

@@ -12,7 +12,7 @@ async function bootstrap() {
   }));
 
   // Habilitar CORS
-  app.enableCors();
+  
 
   const port = process.env.AUTH_SERVICE_PORT || 8001;
   await app.listen(port);

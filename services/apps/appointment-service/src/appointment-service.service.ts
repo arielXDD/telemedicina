@@ -14,6 +14,11 @@ export class AppointmentServiceService {
     }
   }
 
+  async health() {
+    await this.prisma.$queryRaw`SELECT 1`;
+    return { status: 'OK', service: 'appointment-service', database: 'reachable' };
+  }
+
   async create(dto: CreateAppointmentDto) {
     const appointment = await this.prisma.appointment.create({
       data: {
@@ -49,8 +54,8 @@ export class AppointmentServiceService {
             },
           ],
           mode: 'payment',
-          success_url: `http://localhost:5173/payment-success?appointmentId=${appointment.id}`,
-          cancel_url: `http://localhost:5173/payment-cancel?appointmentId=${appointment.id}`,
+          success_url: `${this.frontendUrl}/payment-success?appointmentId=${appointment.id}`,
+          cancel_url: `${this.frontendUrl}/payment-cancel?appointmentId=${appointment.id}`,
           metadata: {
             appointmentId: appointment.id,
           },
@@ -64,7 +69,7 @@ export class AppointmentServiceService {
 
     // Si no hay Stripe o falló la creación, usamos la URL de simulación local
     if (!checkoutUrl) {
-      checkoutUrl = `http://localhost:5173/checkout-simulation?appointmentId=${appointment.id}&amount=${dto.amount}&doctorName=${encodeURIComponent(dto.doctorName)}&specialty=${encodeURIComponent(dto.specialty)}`;
+      checkoutUrl = `${this.frontendUrl}/checkout-simulation?appointmentId=${appointment.id}&amount=${dto.amount}&doctorName=${encodeURIComponent(dto.doctorName)}&specialty=${encodeURIComponent(dto.specialty)}`;
     }
 
     // Actualizamos el ID de sesión
@@ -124,6 +129,8 @@ export class AppointmentServiceService {
     });
   }
 
+
+
   async findAll() {
     return this.prisma.appointment.findMany({
       orderBy: { dateTime: 'asc' },
@@ -131,6 +138,13 @@ export class AppointmentServiceService {
   }
 
   async createSchedule(dto: CreateScheduleDto) {
+    await this.prisma.doctorSchedule.deleteMany({
+      where: {
+        doctorId: dto.doctorId,
+        dayOfWeek: dto.dayOfWeek,
+      }
+    });
+
     return this.prisma.doctorSchedule.create({
       data: dto,
     });
@@ -140,5 +154,9 @@ export class AppointmentServiceService {
     return this.prisma.doctorSchedule.findMany({
       where: { doctorId },
     });
+  }
+
+  private get frontendUrl() {
+    return process.env.FRONTEND_URL || 'http://localhost:5173';
   }
 }

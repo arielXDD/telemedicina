@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -11,6 +11,11 @@ export class AuthServiceService {
     private jwtService: JwtService,
   ) {}
 
+  async health() {
+    await this.prisma.$queryRaw`SELECT 1`;
+    return { status: 'OK', service: 'auth-service', database: 'reachable' };
+  }
+
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
@@ -22,7 +27,10 @@ export class AuthServiceService {
 
     // Lógica especial de registro seguro para médicos
     if (dto.role === 'MEDICO') {
-      const officialKey = process.env.DOCTOR_REGISTRATION_KEY || 'MED-SECURE-2026';
+      const officialKey = process.env.DOCTOR_REGISTRATION_KEY;
+      if (!officialKey) {
+        throw new InternalServerErrorException('Configuración de servidor incompleta: Falta clave de registro médico.');
+      }
       if (!dto.doctorRegisterKey || dto.doctorRegisterKey !== officialKey) {
         throw new UnauthorizedException('La clave de acceso para registro de médicos es incorrecta.');
       }

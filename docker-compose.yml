@@ -1,32 +1,56 @@
-version: '3.8'
-
 services:
-  # 1. PostgreSQL Database Server (Exposed on 5432)
   postgres:
     image: postgres:15-alpine
     container_name: telemed-postgres
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      # El default database es 'postgres', Prisma creará el resto automáticamente al sincronizar!
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
-  # 2. PGAdmin 4 - Base de Datos Panel de Administración (Puerto 8080)
   pgadmin:
     image: dpage/pgadmin4
     container_name: telemed-pgadmin
     ports:
       - "8080:80"
     environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
-      - PGADMIN_DEFAULT_PASSWORD=admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
-  # 3. API Gateway
+  db-migrate:
+    build:
+      context: ./services
+      dockerfile: ./apps/services/Dockerfile
+    container_name: telemed-db-migrate
+    command:
+      - sh
+      - -c
+      - >
+        npx prisma db push --schema apps/auth-service/prisma/schema.prisma --url "$$AUTH_DATABASE_URL" &&
+        npx prisma db push --schema apps/appointment-service/prisma/schema.prisma --url "$$APPOINTMENT_DATABASE_URL" &&
+        npx prisma db push --schema apps/clinical-history-service/prisma/schema.prisma --url "$$CLINICAL_HISTORY_DATABASE_URL"
+    environment:
+      AUTH_DATABASE_URL: ${AUTH_DATABASE_URLql://postgres:postgres@postgres:5432/postgres?schema=auth}
+      APPOINTMENT_DATABASE_URL: ${APPOINTMENT_DATABASE_URLql://postgres:postgres@postgres:5432/postgres?schema=appointments}
+      CLINICAL_HISTORY_DATABASE_URL: ${CLINICAL_HISTORY_DATABASE_URLql://postgres:postgres@postgres:5432/postgres?schema=clinical_history}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # 1. API Gateway
   api-gateway:
     build:
       context: ./services
@@ -35,22 +59,28 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - NODE_ENV=production
-      - GATEWAY_PORT=8000
-      - AUTH_SERVICE_PORT=8001
-      - APPOINTMENT_SERVICE_PORT=8002
-      - CLINICAL_HISTORY_SERVICE_PORT=8003
-      - AUTH_SERVICE_URL=http://auth-service:8001
-      - APPOINTMENT_SERVICE_URL=http://appointment-service:8002
-      - CLINICAL_HISTORY_SERVICE_URL=http://clinical-history-service:8003
-      - JWT_SECRET=jwt-telemedicina-ultra-secret-key-xyz
-      - ENCRYPTION_KEY=ab12cd34ef56gh78ij90kl12mn34op56
+      NODE_ENV: production
+      GATEWAY_PORT: 8000
+      AUTH_SERVICE_PORT: 8001
+      APPOINTMENT_SERVICE_PORT: 8002
+      CLINICAL_HISTORY_SERVICE_PORT: 8003
+      AUTH_SERVICE_URL: http://auth-service:8001
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8002
+      CLINICAL_HISTORY_SERVICE_URL: http://clinical-history-service:8003
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-ab12cd34ef56gh78ij90kl12mn34op56}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_API_KEY: ${TWILIO_API_KEY:-}
+      TWILIO_API_SECRET: ${TWILIO_API_SECRET:-}
     depends_on:
-      - auth-service
-      - appointment-service
-      - clinical-history-service
+      auth-service:
+        condition: service_started
+      appointment-service:
+        condition: service_started
+      clinical-history-service:
+        condition: service_started
 
-  # 4. Auth Service
+  # 2. Auth Service
   auth-service:
     build:
       context: ./services
@@ -59,14 +89,17 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - NODE_ENV=production
-      - AUTH_SERVICE_PORT=8001
-      - JWT_SECRET=jwt-telemedicina-ultra-secret-key-xyz
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/telemed_auth?schema=public
+      NODE_ENV: production
+      AUTH_SERVICE_PORT: 8001
+      JWT_SECRET: ${JWT_SECRET}
+      DOCTOR_REGISTRATION_KEY: ${DOCTOR_REGISTRATION_KEY:-MED-SECURE-2026}
+      DATABASE_URL: ${AUTH_DATABASE_URLql://postgres:postgres@postgres:5432/postgres?schema=auth}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
     depends_on:
-      - postgres
+      db-migrate:
+        condition: service_completed_successfully
 
-  # 5. Appointment Service
+  # 3. Appointment Service
   appointment-service:
     build:
       context: ./services
@@ -75,13 +108,17 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - NODE_ENV=production
-      - APPOINTMENT_SERVICE_PORT=8002
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/telemed_appointments?schema=public
+      NODE_ENV: production
+      APPOINTMENT_SERVICE_PORT: 8002
+      DATABASE_URL: ${APPOINTMENT_DATABASE_URLql://postgres:postgres@postgres:5432/postgres?schema=appointments}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     depends_on:
-      - postgres
+      db-migrate:
+        condition: service_completed_successfully
 
-  # 6. Clinical History Service
+  # 4. Clinical History Service
   clinical-history-service:
     build:
       context: ./services
@@ -90,14 +127,16 @@ services:
     ports:
       - "8003:8003"
     environment:
-      - NODE_ENV=production
-      - CLINICAL_HISTORY_SERVICE_PORT=8003
-      - ENCRYPTION_KEY=ab12cd34ef56gh78ij90kl12mn34op56
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/telemed_clinical_history?schema=public
+      NODE_ENV: production
+      CLINICAL_HISTORY_SERVICE_PORT: 8003
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-ab12cd34ef56gh78ij90kl12mn34op56}
+      DATABASE_URL: ${CLINICAL_HISTORY_DATABASE_URLql://postgres:postgres@postgres:5432/postgres?schema=clinical_history}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
     depends_on:
-      - postgres
+      db-migrate:
+        condition: service_completed_successfully
 
-  # 7. Frontend React SPA
+  # 5. Frontend React SPA
   frontend:
     build:
       context: ./frontend

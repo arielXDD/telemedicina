@@ -6,6 +6,11 @@ import { CreateRecordDto } from './dtos/record.dto';
 export class ClinicalHistoryServiceController {
   constructor(private readonly clinicalHistoryService: ClinicalHistoryServiceService) {}
 
+  @Get('health')
+  async health() {
+    return this.clinicalHistoryService.health();
+  }
+
   @Post()
   async create(@Body() dto: CreateRecordDto) {
     return this.clinicalHistoryService.create(dto);

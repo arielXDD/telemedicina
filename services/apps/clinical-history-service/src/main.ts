@@ -10,7 +10,7 @@ async function bootstrap() {
     transform: true,
   }));
 
-  app.enableCors();
+  
 
   const port = process.env.CLINICAL_HISTORY_SERVICE_PORT || 8003;
   await app.listen(port);

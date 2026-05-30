@@ -1,5 +1,6 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  schemas  = ["appointments"]
 }
 
 generator client {
@@ -19,6 +20,8 @@ model Appointment {
   amount          Float    // Precio de la consulta
   stripeSessionId String?  // ID de sesión de Stripe (opcional/para la simulación)
   createdAt       DateTime @default(now())
+
+  @@schema("appointments")
 }
 
 model DoctorSchedule {
@@ -27,4 +30,6 @@ model DoctorSchedule {
   dayOfWeek String   // "Lunes", "Martes", etc.
   startTime String   // "09:00"
   endTime   String   // "17:00"
+
+  @@schema("appointments")
 }

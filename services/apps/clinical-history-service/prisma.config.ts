@@ -1,11 +1,11 @@
-import { defineConfig } from "prisma/config";
-
-export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
+import { PrismaConfig } from '@prisma/config';
+export default {
+  earlyAccess: true,
+  schema: 'prisma/schema.prisma',
   datasource: {
-    url: process.env.DATABASE_URL_CLINICAL_HISTORY || process.env.DATABASE_URL || "file:../clinical_history.db",
+    url:
+      process.env.CLINICAL_HISTORY_DATABASE_URL ||
+      process.env.DATABASE_URL ||
+      'postgresql://postgres:postgres@localhost:5432/postgres?schema=clinical_history',
   },
-});
+} satisfies PrismaConfig;
